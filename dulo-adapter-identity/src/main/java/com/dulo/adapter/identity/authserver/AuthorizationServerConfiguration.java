@@ -85,9 +85,10 @@ public class AuthorizationServerConfiguration {
     @Bean
     OAuth2TokenGenerator<OAuth2Token> tokenGenerator(
             final JWKSource<SecurityContext> jwkSource, final Clock clock) {
+        final JwtGenerator jwtGenerator = new JwtGenerator(new NimbusJwtEncoder(jwkSource));
+        jwtGenerator.setJwtCustomizer(new AccessTokenCustomizer());
         return new DelegatingOAuth2TokenGenerator(
-                new JwtGenerator(new NimbusJwtEncoder(jwkSource)),
-                new PublicClientRefreshTokenGenerator(clock));
+                jwtGenerator, new PublicClientRefreshTokenGenerator(clock));
     }
 
     /** The authorization server endpoints: {@code /oauth2/*}, {@code /.well-known/*} and OIDC. */

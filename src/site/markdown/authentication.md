@@ -12,12 +12,15 @@ clients.
    maps the provider's roles claim to Dulo roles.
 2. **An authorization server** for Dulo's clients: the web client, tools like Postman, and later
    MCP clients. It issues JWT access tokens whose subject (`sub`) is the Dulo user id.
-   - Access tokens last 15 minutes.
+   - Access tokens last 15 minutes. They are JWT access tokens as
+     [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068) defines them: type `at+jwt`, a
+     `client_id` claim, and Dulo's own URL as the audience (`aud`).
    - Refresh tokens last 30 days and are replaced on every use.
    - Authorizations and refresh tokens are kept in memory, so after a restart users sign in again.
      If the provider's session is still alive, that needs no password.
 3. **A resource server.** Every API call needs one of Dulo's access tokens. Dulo checks the token
-   with its own key, without calling the provider. What the user may do comes from Dulo's
+   with its own key, without calling the provider, and accepts only access tokens: an ID token
+   from the same sign-in has the same user and signature, but is rejected with 401. What the user may do comes from Dulo's
    database, not from the token, so a role change takes effect on the next call.
 
 The key that signs the tokens is created on the first start and stored in the database. It is

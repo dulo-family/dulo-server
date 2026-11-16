@@ -90,6 +90,7 @@ final class OAuthTestClient {
         return new Tokens(
                 body.path("access_token").asString(),
                 body.path("refresh_token").asString(),
+                body.path("id_token").asString(),
                 body.path("expires_in").asLong());
     }
 
@@ -207,5 +208,5 @@ final class OAuthTestClient {
         return location.isAbsolute() ? location : response.uri().resolve(location);
     }
 
-    record Tokens(String accessToken, String refreshToken, long expiresIn) {}
+    record Tokens(String accessToken, String refreshToken, String idToken, long expiresIn) {}
 }
