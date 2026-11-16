@@ -84,6 +84,15 @@ final class OAuthTestClient {
         throw new AssertionError("No " + name + " in " + uri);
     }
 
+    private static Tokens tokens(final HttpResponse<String> response) {
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+        final JsonNode body = JSON.readTree(response.body());
+        return new Tokens(
+                body.path("access_token").asString(),
+                body.path("refresh_token").asString(),
+                body.path("expires_in").asLong());
+    }
+
     /** The authorization request URL, with an optional identity provider hint. */
     String authorizationUrl(final String challenge, final @Nullable String idp) {
         final Map<String, String> query = new LinkedHashMap<>();
@@ -146,6 +155,24 @@ final class OAuthTestClient {
                         "client_id", CLIENT_ID));
     }
 
+    /** Refreshes the way Postman does: the client id in a Basic header with no password. */
+    Tokens refreshWithBasicHeader(final String refreshToken)
+            throws IOException, InterruptedException {
+        final String credentials =
+                Base64.getEncoder()
+                        .encodeToString((CLIENT_ID + ":").getBytes(StandardCharsets.UTF_8));
+        final String form =
+                form(Map.of("grant_type", "refresh_token", "refresh_token", refreshToken));
+        return tokens(
+                this.http.send(
+                        HttpRequest.newBuilder(URI.create(this.baseUrl + "/oauth2/token"))
+                                .header("Content-Type", "application/x-www-form-urlencoded")
+                                .header("Authorization", "Basic " + credentials)
+                                .POST(HttpRequest.BodyPublishers.ofString(form))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString()));
+    }
+
     HttpResponse<String> tokenRequest(final Map<String, String> parameters)
             throws IOException, InterruptedException {
         return this.post(this.baseUrl + "/oauth2/token", form(parameters));
@@ -159,13 +186,7 @@ final class OAuthTestClient {
 
     private Tokens tokens(final Map<String, String> parameters)
             throws IOException, InterruptedException {
-        final HttpResponse<String> response = this.tokenRequest(parameters);
-        assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
-        final JsonNode body = JSON.readTree(response.body());
-        return new Tokens(
-                body.path("access_token").asString(),
-                body.path("refresh_token").asString(),
-                body.path("expires_in").asLong());
+        return tokens(this.tokenRequest(parameters));
     }
 
     private HttpResponse<String> post(final String url, final String form)
