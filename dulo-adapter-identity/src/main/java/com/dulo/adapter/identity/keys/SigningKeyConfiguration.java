@@ -14,7 +14,9 @@ import com.nimbusds.jose.proc.SecurityContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.JwtValidators;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
+import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 
 import java.text.ParseException;
 import java.time.Clock;
@@ -56,9 +58,20 @@ public class SigningKeyConfiguration {
         return new ImmutableJWKSet<>(new JWKSet(key));
     }
 
-    /** Checks Dulo's own access tokens locally, without asking the authorization server. */
+    /**
+     * Checks Dulo's own access tokens locally, without asking the authorization server. It accepts
+     * only RFC 9068 access tokens that this server issued for itself, so an ID token, which has the
+     * same subject and signature, can't be used in place of an access token.
+     */
     @Bean
-    JwtDecoder jwtDecoder(final JWKSource<SecurityContext> jwkSource) {
-        return NimbusJwtDecoder.withJwkSource(jwkSource).build();
+    JwtDecoder jwtDecoder(
+            final JWKSource<SecurityContext> jwkSource, final AuthorizationServerSettings server) {
+        final NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSource(jwkSource).build();
+        decoder.setJwtValidator(
+                JwtValidators.createAtJwtValidator()
+                        .issuer(server.getIssuer())
+                        .audience(server.getIssuer())
+                        .build());
+        return decoder;
     }
 }

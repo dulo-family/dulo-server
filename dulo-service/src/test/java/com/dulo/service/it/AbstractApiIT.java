@@ -46,6 +46,7 @@ import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Set;
 
@@ -123,6 +124,11 @@ abstract class AbstractApiIT {
         registry.add("dulo.database.password", db::getPassword);
     }
 
+    /** The decoded header of a JWT. */
+    private static JsonNode header(final String jwt) {
+        return JSON.readTree(Base64.getUrlDecoder().decode(jwt.substring(0, jwt.indexOf('.'))));
+    }
+
     private static JsonNode feature(final JsonNode tree, final String key) {
         for (final JsonNode feature : tree.path("features")) {
             if (feature.path("key").asString().equals(key)) {
@@ -170,6 +176,21 @@ abstract class AbstractApiIT {
         assertThat(body.path("email").asString()).isEqualTo("grace@example.com");
         assertThat(body.path("status").asString()).isEqualTo("active");
         assertThat(body.path("roles").get(0).asString()).isEqualTo("admin");
+    }
+
+    @Test
+    void idTokensAreNoAccessTokens() throws Exception {
+        final OAuthTestClient.Tokens tokens = this.client().signIn("it-id-token", "{}");
+
+        assertThat(header(tokens.accessToken()).path("typ").asString()).isEqualTo("at+jwt");
+        assertThat(tokens.idToken()).isNotBlank();
+        // Same user, same issuer and signing key, but not an access token.
+        final HttpResponse<String> me = this.get("/api/v1/me", tokens.idToken());
+        assertThat(me.statusCode()).isEqualTo(401);
+        assertThat(this.get("/api/v1/me", tokens.accessToken()).statusCode()).isEqualTo(200);
+        // The OpenID Connect user info endpoint takes the same access tokens.
+        assertThat(this.get("/userinfo", tokens.accessToken()).statusCode()).isEqualTo(200);
+        assertThat(this.get("/userinfo", tokens.idToken()).statusCode()).isEqualTo(401);
     }
 
     @Test
