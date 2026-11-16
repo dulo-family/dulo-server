@@ -55,6 +55,12 @@ Hexagonal (onion) layout, one Maven module per layer. Packages are `com.dulo.<la
 - `dulo-adapter-persistence-jpa`: implements the outbound ports with JPA, Hibernate and Liquibase.
   One adapter covers SQLite, PostgreSQL and MySQL/MariaDB. The changelogs are in
   `src/main/resources/db/changelog/`. JPA entities never leave the adapter.
+- `dulo-adapter-identity`: Spring Security. Dulo is a client of the upstream identity providers
+  (`oauth2Login`), its own OAuth2 authorization server (public client `dulo-web`, PKCE, refresh
+  tokens rotated, JWTs with `sub` = Dulo user id), and the resource server for `/api/**`. It gets
+  its settings as `IdentityAdapterSettings`, mapped from `DuloProperties` in
+  `service/wiring/IdentityAdapterWiring`. Authorizations live in memory; the signing key is in the
+  DB. The auth flow is documented in `src/site/markdown/authentication.md`.
 - `dulo-adapter-rest`: Spring MVC controllers that only call `port.in` interfaces. Errors are
   RFC 9457 `ProblemDetail` responses with `urn:dulo:problem:*` types. It also holds the OpenAPI
   setup.
@@ -64,8 +70,8 @@ Hexagonal (onion) layout, one Maven module per layer. Packages are `com.dulo.<la
   - wiring: core services are plain classes, created as `@Bean`s in `wiring/CoreServicesConfiguration`;
   - all ArchUnit tests and integration tests.
 
-Each adapter has one entry-point `@Configuration` (`PersistenceJpaConfiguration`,
-`RestApiConfiguration`), and `DuloApplication` `@Import`s them explicitly. There is no
+Each adapter has one entry-point `@Configuration` (`IdentityAdapterConfiguration`,
+`PersistenceJpaConfiguration`, `RestApiConfiguration`), and `DuloApplication` `@Import`s them explicitly. There is no
 application-wide component scan. `ArchitectureTest` (with `onionArchitecture()`) enforces the
 layers: the domain and core don't depend on frameworks, and adapters don't depend on each other.
 
@@ -85,6 +91,9 @@ forced values through `FeatureOverridesPort`.
 
 - Document endpoints with the Swagger annotations (`@Tag`, `@Operation`, `@ApiResponse`).
 - The spec is served at `/api/v1/openapi.json`.
+- Controllers get the caller as `java.security.Principal` and turn it into a `UserId` with
+  `Callers.id`, so the REST adapter needs no Spring Security. Use cases check access through the
+  core's `AccessPolicy`; `AccessDeniedException` becomes a 401/403 problem.
 - `RequiredRecordComponentsConverter` marks every response record component as required unless
   it's `@Nullable`.
 - The spec's version is the API version (`OpenApiConfiguration.API_VERSION`), not the server

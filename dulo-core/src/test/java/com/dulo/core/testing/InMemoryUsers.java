@@ -28,6 +28,11 @@ public final class InMemoryUsers implements UserRepository {
     }
 
     @Override
+    public boolean existsRoot() {
+        return this.users.values().stream().anyMatch(User::root);
+    }
+
+    @Override
     public User save(final User user) {
         final long actual =
                 Optional.ofNullable(this.users.get(user.id())).map(User::version).orElse(0L);

@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=../../schema/dulo-config.schema.json
+#
+# Local development with a mock identity provider that accepts any user name. See the
+# Authentication page of the docs site. Start the provider first:
+#
+#   docker run --rm -p 9090:8080 -e JSON_CONFIG='{"interactiveLogin": true}' \
+#     ghcr.io/navikt/mock-oauth2-server:6.1.5
+#
+# Then the server:
+#
+#   DULO_CONFIG_FILE=deploy/dev/dulo.dev.yaml java -jar dulo-service/target/dulo-server-*.jar
+#
+# In IntelliJ, the shared run configuration "Dulo local with mock IdP" starts both.
+#
+# Personal settings, such as a real provider's client secret, go in deploy/dev/dulo.local.yaml,
+# which git ignores. Its values override this file. The run configuration loads it when it
+# exists; on the command line, add
+#   SPRING_CONFIG_ADDITIONAL_LOCATION=optional:file:deploy/dev/dulo.local.yaml
+dulo:
+  public-url: http://localhost:8080
+  data-dir: ./data/dev
+
+  identity:
+    providers:
+      mock:
+        type: oidc
+        display-name: Mock provider
+        issuer-uri: http://localhost:9090/default
+        client-id: dulo-dev
+        client-secret: dev-secret
+        # Sign in with the claims {"groups": ["dulo-admins"]} to become an administrator.
+        role-mappings:
+          dulo-admins: [admin]
+        default-role: viewer
+
+  clients:
+    web:
+      redirect-uris:
+        # Postman, with "Authorize using browser"
+        - https://oauth.pstmn.io/v1/callback
+        # A web client running locally
+        - http://localhost:5173/auth/callback
+      allowed-origins:
+        - http://localhost:5173
+      sign-in-url: http://localhost:5173/sign-in
+
+  registration:
+    mode: auto
+
+  print-config: true

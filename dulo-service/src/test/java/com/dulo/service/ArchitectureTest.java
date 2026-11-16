@@ -43,6 +43,7 @@ final class ArchitectureTest {
             onionArchitecture()
                     .domainModels("com.dulo.domain..")
                     .applicationServices("com.dulo.core..")
+                    .adapter("identity", "com.dulo.adapter.identity..")
                     .adapter("persistence", "com.dulo.adapter.persistence..")
                     .adapter("rest", "com.dulo.adapter.rest..")
                     .withOptionalLayers(true)

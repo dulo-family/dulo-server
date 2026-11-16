@@ -1,10 +1,15 @@
 package com.dulo.service.wiring;
 
+import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.core.access.service.AccessPolicy;
+import com.dulo.core.access.service.CurrentUserService;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.identity.port.out.SigningKeyRepository;
+import com.dulo.core.identity.service.IdentityProviderService;
 import com.dulo.core.identity.service.SignInService;
 import com.dulo.core.identity.service.SigningKeyService;
+import com.dulo.core.setup.service.SetupService;
 import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.core.tree.port.out.FeatureOverridesPort;
 import com.dulo.core.tree.port.out.TreeSettingsRepository;
@@ -22,6 +27,33 @@ public class CoreServicesConfiguration {
     @Bean
     Clock clock() {
         return Clock.systemUTC();
+    }
+
+    @Bean
+    AccessPolicy accessPolicy(
+            final UserRepository users,
+            final RoleRepository roles,
+            final TreeSettingsRepository trees,
+            final FeatureOverridesPort featureOverrides) {
+        return new AccessPolicy(users, roles, trees, featureOverrides);
+    }
+
+    @Bean
+    CurrentUserService currentUserService(
+            final UserRepository users,
+            final AccessPolicy accessPolicy,
+            final UnitOfWork unitOfWork) {
+        return new CurrentUserService(users, accessPolicy, unitOfWork);
+    }
+
+    @Bean
+    IdentityProviderService identityProviderService(final IdentityProvidersPort providers) {
+        return new IdentityProviderService(providers);
+    }
+
+    @Bean
+    SetupService setupService(final UserRepository users, final UnitOfWork unitOfWork) {
+        return new SetupService(users, unitOfWork);
     }
 
     @Bean
@@ -43,7 +75,8 @@ public class CoreServicesConfiguration {
     TreeService treeService(
             final TreeSettingsRepository trees,
             final FeatureOverridesPort featureOverrides,
+            final AccessPolicy accessPolicy,
             final UnitOfWork unitOfWork) {
-        return new TreeService(trees, featureOverrides, unitOfWork);
+        return new TreeService(trees, featureOverrides, accessPolicy, unitOfWork);
     }
 }

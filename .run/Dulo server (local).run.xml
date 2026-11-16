@@ -1,0 +1,14 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dulo server (local)" type="Application" factoryName="Application">
+    <envs>
+      <env name="DULO_CONFIG_FILE" value="deploy/dev/dulo.dev.yaml" />
+      <env name="SPRING_CONFIG_ADDITIONAL_LOCATION" value="optional:file:deploy/dev/dulo.local.yaml" />
+    </envs>
+    <option name="MAIN_CLASS_NAME" value="com.dulo.service.DuloApplication" />
+    <module name="dulo-service" />
+    <option name="VM_PARAMETERS" value="--enable-native-access=ALL-UNNAMED" />
+    <method v="2">
+      <option name="Make" enabled="true" />
+    </method>
+  </configuration>
+</component>

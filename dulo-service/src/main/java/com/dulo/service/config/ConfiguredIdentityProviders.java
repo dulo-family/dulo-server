@@ -2,10 +2,14 @@ package com.dulo.service.config;
 
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.identity.IdentityProvider;
+import com.dulo.domain.identity.IdentityProviderType;
 import com.dulo.domain.identity.RegistrationMode;
 import com.dulo.domain.identity.RoleMapping;
 
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -17,6 +21,7 @@ import java.util.stream.Collectors;
  */
 class ConfiguredIdentityProviders implements IdentityProvidersPort {
 
+    private final List<IdentityProvider> providers;
     private final Map<String, RoleMapping> roleMappings;
     private final RegistrationMode registrationMode;
 
@@ -27,11 +32,28 @@ class ConfiguredIdentityProviders implements IdentityProvidersPort {
                 .providers()
                 .forEach((id, provider) -> mappings.put(id, roleMapping(id, provider)));
         this.roleMappings = Map.copyOf(mappings);
+        this.providers =
+                properties.identity().providers().entrySet().stream()
+                        .map(e ->
+                                new IdentityProvider(
+                                        e.getKey(),
+                                        e.getValue().displayNameOr(e.getKey()),
+                                        type(e.getValue().type())))
+                        .sorted(Comparator.comparing(IdentityProvider::id))
+                        .toList();
         this.registrationMode =
                 switch (properties.registration().mode()) {
                     case AUTO -> RegistrationMode.AUTO;
                     case APPROVAL -> RegistrationMode.APPROVAL;
                 };
+    }
+
+    private static IdentityProviderType type(final DuloProperties.ProviderType type) {
+        return switch (type) {
+            case OIDC -> IdentityProviderType.OIDC;
+            case GOOGLE -> IdentityProviderType.GOOGLE;
+            case MICROSOFT -> IdentityProviderType.MICROSOFT;
+        };
     }
 
     private static RoleMapping roleMapping(
@@ -52,6 +74,11 @@ class ConfiguredIdentityProviders implements IdentityProvidersPort {
                             .formatted(providerId, e.getMessage()),
                     e);
         }
+    }
+
+    @Override
+    public List<IdentityProvider> providers() {
+        return this.providers;
     }
 
     @Override

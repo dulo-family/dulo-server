@@ -1,9 +1,11 @@
 package com.dulo.service;
 
+import com.dulo.adapter.identity.IdentityAdapterConfiguration;
 import com.dulo.adapter.persistence.jpa.PersistenceJpaConfiguration;
 import com.dulo.adapter.rest.RestApiConfiguration;
 import com.dulo.service.config.ConfigurationConfiguration;
 import com.dulo.service.wiring.CoreServicesConfiguration;
+import com.dulo.service.wiring.IdentityAdapterWiring;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -14,6 +16,8 @@ import org.springframework.context.annotation.Import;
 @Import({
     ConfigurationConfiguration.class,
     CoreServicesConfiguration.class,
+    IdentityAdapterConfiguration.class,
+    IdentityAdapterWiring.class,
     PersistenceJpaConfiguration.class,
     RestApiConfiguration.class
 })

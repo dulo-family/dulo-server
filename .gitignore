@@ -2,6 +2,8 @@
 .DS_Store
 .vscode/
 data/
+# Personal overrides of deploy/dev/dulo.dev.yaml, e.g. real client secrets.
+deploy/dev/dulo.local.yaml
 pom.xml.next
 pom.xml.releaseBackup
 pom.xml.tag

@@ -10,5 +10,11 @@ public final class ProblemTypes {
     public static final URI CONCURRENT_MODIFICATION =
             URI.create("urn:dulo:problem:concurrent-modification");
 
+    public static final URI UNAUTHORIZED = URI.create("urn:dulo:problem:unauthorized");
+    public static final URI FORBIDDEN = URI.create("urn:dulo:problem:forbidden");
+    public static final URI FEATURE_DISABLED = URI.create("urn:dulo:problem:feature-disabled");
+    public static final URI ACCOUNT_PENDING = URI.create("urn:dulo:problem:account-pending");
+    public static final URI ACCOUNT_DISABLED = URI.create("urn:dulo:problem:account-disabled");
+
     private ProblemTypes() {}
 }

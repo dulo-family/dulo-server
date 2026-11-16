@@ -14,6 +14,11 @@ import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.user.Actor;
 import com.dulo.domain.user.User;
 import com.dulo.domain.user.UserId;
+import com.dulo.domain.user.UserStatus;
+
+import java.util.EnumMap;
+import java.util.Map;
+import java.util.Set;
 
 /**
  * Decides whether a user may perform an operation. Every use case calls it, so all APIs share the
@@ -89,11 +94,32 @@ public class AccessPolicy {
         if (user.root()) {
             return new Actor(user.id(), true, Permissions.all());
         }
-        final Permissions permissions =
-                this.roles.findAllByKeys(user.roles()).stream()
-                        .map(Role::permissions)
-                        .reduce(Permissions.none(), Permissions::union);
-        return new Actor(user.id(), false, permissions);
+        return new Actor(user.id(), false, this.rolePermissions(user));
+    }
+
+    /**
+     * What the user may do right now: nothing unless they are active, everything on enabled
+     * features for root, and otherwise their roles' permissions on enabled features.
+     */
+    public Permissions effectivePermissions(final User user) {
+        if (user.status() != UserStatus.ACTIVE) {
+            return Permissions.none();
+        }
+        final Permissions granted = user.root() ? Permissions.all() : this.rolePermissions(user);
+        final Map<Feature, Set<Access>> enabled = new EnumMap<>(Feature.class);
+        granted.grants()
+                .forEach((feature, access) -> {
+                    if (this.isEnabled(feature)) {
+                        enabled.put(feature, access);
+                    }
+                });
+        return new Permissions(enabled);
+    }
+
+    private Permissions rolePermissions(final User user) {
+        return this.roles.findAllByKeys(user.roles()).stream()
+                .map(Role::permissions)
+                .reduce(Permissions.none(), Permissions::union);
     }
 
     private boolean isEnabled(final Feature feature) {

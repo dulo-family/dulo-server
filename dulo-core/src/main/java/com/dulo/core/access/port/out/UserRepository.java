@@ -13,6 +13,9 @@ public interface UserRepository {
 
     Optional<User> findByExternalIdentity(ExternalIdentity identity);
 
+    /** Whether a root user exists, i.e. the initial setup is done. */
+    boolean existsRoot();
+
     /**
      * Inserts a new user or updates an existing one.
      *

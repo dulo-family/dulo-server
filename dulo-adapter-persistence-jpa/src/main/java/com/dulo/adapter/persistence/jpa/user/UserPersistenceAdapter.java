@@ -75,6 +75,11 @@ public class UserPersistenceAdapter implements UserRepository {
     }
 
     @Override
+    public boolean existsRoot() {
+        return this.repository.existsByRootTrue();
+    }
+
+    @Override
     public User save(final User user) {
         final String id = user.id().toString();
         final UserJpaEntity entity =

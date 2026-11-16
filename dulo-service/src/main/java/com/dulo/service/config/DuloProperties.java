@@ -213,6 +213,18 @@ public record DuloProperties(
             roleMappings = Map.copyOf(roleMappings);
         }
 
+        /** The configured display name, or a name derived from the type and id. */
+        public String displayNameOr(final String id) {
+            if (displayName != null && !displayName.isBlank()) {
+                return displayName;
+            }
+            return switch (type) {
+                case GOOGLE -> "Google";
+                case MICROSOFT -> "Microsoft";
+                case OIDC -> id;
+            };
+        }
+
         @AssertTrue(message = "issuer-uri is required for oidc and microsoft providers")
         boolean isIssuerUriPresent() {
             return type != ProviderType.OIDC && type != ProviderType.MICROSOFT || issuerUri != null;
@@ -232,7 +244,11 @@ public record DuloProperties(
                     String clientId,
             @ConfigDoc("Allowed redirect URIs after sign-in.") @DefaultValue List<URI> redirectUris,
             @ConfigDoc("Origins allowed to call the API from a browser (CORS).") @DefaultValue
-                    List<String> allowedOrigins) {
+                    List<String> allowedOrigins,
+            @ConfigDoc(
+                            "The web client's sign-in page, which lists the identity providers."
+                                    + " Defaults to /sign-in under the public URL.")
+                    @Nullable URI signInUrl) {
 
         public WebClient {
             redirectUris = List.copyOf(redirectUris);

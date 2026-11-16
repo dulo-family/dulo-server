@@ -1,7 +1,7 @@
 package com.dulo.service.config;
 
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
-import com.dulo.core.tree.port.in.GetTreeUseCase;
+import com.dulo.core.setup.port.in.GetSetupStatusUseCase;
 import com.dulo.core.tree.port.out.FeatureOverridesPort;
 
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -33,7 +33,7 @@ public class ConfigurationConfiguration {
     ConfigurationReportLogger configurationReportLogger(
             final ConfigurationReport report,
             final DuloProperties properties,
-            final GetTreeUseCase getTree) {
-        return new ConfigurationReportLogger(report, properties, getTree);
+            final GetSetupStatusUseCase setupStatus) {
+        return new ConfigurationReportLogger(report, properties, setupStatus);
     }
 }

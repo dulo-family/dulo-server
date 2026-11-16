@@ -16,13 +16,75 @@
     }
   } ],
   "tags" : [ {
+    "description" : "The signed-in user",
+    "name" : "Me"
+  }, {
     "description" : "The family tree of this server",
     "name" : "Tree"
+  }, {
+    "description" : "Where users can sign in",
+    "name" : "Identity providers"
   } ],
   "paths" : {
+    "/api/v1/identity-providers" : {
+      "get" : {
+        "description" : "Public, for the sign-in page. Sorted by id. When an authorization request names one with the `idp` parameter, or only one is configured, the server skips the sign-in page and goes straight to it.",
+        "operationId" : "identityProviders",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/IdentityProviderResponse"
+                  }
+                }
+              }
+            },
+            "description" : "The configured identity providers"
+          }
+        },
+        "summary" : "List the identity providers",
+        "tags" : [ "Identity providers" ]
+      }
+    },
+    "/api/v1/me" : {
+      "get" : {
+        "description" : "Returns the user, their roles and what they may do. Also works while the account waits for approval or is disabled, so clients can say why.",
+        "operationId" : "me",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/MeResponse"
+                }
+              }
+            },
+            "description" : "The signed-in user"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No valid access token. The problem type is `urn:dulo:problem:unauthorized`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get the signed-in user",
+        "tags" : [ "Me" ]
+      }
+    },
     "/api/v1/tree" : {
       "get" : {
-        "description" : "Returns the tree's name, description and the state of each feature.",
+        "description" : "Returns the tree's name, description and the state of each feature. Every active user may read it.",
         "operationId" : "getTree",
         "responses" : {
           "200" : {
@@ -44,6 +106,26 @@
               }
             }
           },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No valid access token. The problem type is `urn:dulo:problem:unauthorized`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The account is not active. The problem type is `urn:dulo:problem:account-pending` or `urn:dulo:problem:account-disabled`."
+          },
           "404" : {
             "content" : {
               "application/problem+json" : {
@@ -55,6 +137,9 @@
             "description" : "The initial setup is not done yet. The problem type is `urn:dulo:problem:tree-not-initialized`."
           }
         },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
         "summary" : "Get the family tree",
         "tags" : [ "Tree" ]
       }
@@ -76,6 +161,81 @@
           }
         },
         "required" : [ "enabled", "key", "locked" ]
+      },
+      "IdentityProviderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : "string",
+            "description" : "Name for the sign-in button."
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "signInPath" : {
+            "type" : "string",
+            "description" : "Path that starts the sign-in with this provider. Open it in the browser during an authorization request.",
+            "example" : "/oauth2/authorization/google"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "oidc", "google", "microsoft" ]
+          }
+        },
+        "required" : [ "displayName", "id", "signInPath", "type" ]
+      },
+      "MeResponse" : {
+        "type" : "object",
+        "properties" : {
+          "displayName" : {
+            "type" : [ "string", "null" ]
+          },
+          "email" : {
+            "type" : [ "string", "null" ]
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "description" : "What the user may do right now, per enabled feature. Empty while the account is not active.",
+            "items" : {
+              "$ref" : "#/components/schemas/PermissionResponse"
+            }
+          },
+          "roles" : {
+            "type" : "array",
+            "description" : "Role keys, from the identity provider's claims and assigned by hand.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "root" : {
+            "type" : "boolean",
+            "description" : "True for the user who did the initial setup."
+          },
+          "status" : {
+            "type" : "string",
+            "enum" : [ "active", "pending", "disabled" ]
+          }
+        },
+        "required" : [ "id", "permissions", "roles", "root", "status" ]
+      },
+      "PermissionResponse" : {
+        "type" : "object",
+        "properties" : {
+          "access" : {
+            "type" : "array",
+            "description" : "Allowed access: view, create, edit, delete.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "feature" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "access", "feature" ]
       },
       "ProblemDetail" : {
         "type" : "object",
@@ -128,6 +288,22 @@
           }
         },
         "required" : [ "features", "id", "name", "version" ]
+      }
+    },
+    "securitySchemes" : {
+      "oauth2" : {
+        "description" : "Dulo's own access tokens. Clients use the authorization code flow with PKCE; users sign in through one of the identity providers listed at /api/v1/identity-providers.",
+        "flows" : {
+          "authorizationCode" : {
+            "authorizationUrl" : "/oauth2/authorize",
+            "refreshUrl" : "/oauth2/token",
+            "scopes" : {
+              "openid" : "Sign in"
+            },
+            "tokenUrl" : "/oauth2/token"
+          }
+        },
+        "type" : "oauth2"
       }
     }
   }

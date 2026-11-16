@@ -1,71 +1,73 @@
 package com.dulo.core.tree.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dulo.core.shared.port.out.UnitOfWork;
+import com.dulo.core.access.service.AccessPolicy;
+import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryRoles;
+import com.dulo.core.testing.InMemoryTrees;
+import com.dulo.core.testing.InMemoryUsers;
+import com.dulo.core.testing.Users;
 import com.dulo.core.tree.port.in.TreeView;
-import com.dulo.core.tree.port.out.TreeSettingsRepository;
+import com.dulo.domain.access.AccessDeniedException;
+import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.feature.FeatureState;
 import com.dulo.domain.tree.TreeSettings;
+import com.dulo.domain.user.UserId;
+import com.dulo.domain.user.UserStatus;
 
-import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
-import java.util.function.Supplier;
 
 class TreeServiceTest {
 
-    private static final UnitOfWork DIRECT =
-            new UnitOfWork() {
-                @Override
-                public <T> T read(final Supplier<T> work) {
-                    return work.get();
-                }
-
-                @Override
-                public <T> T write(final Supplier<T> work) {
-                    return work.get();
-                }
-            };
+    private final InMemoryUsers users = new InMemoryUsers();
+    private final InMemoryTrees trees = new InMemoryTrees(null);
+    private final FeatureOverrides overrides =
+            new FeatureOverrides(Map.of(Feature.MAP_VIEW, false));
+    private final TreeService service =
+            new TreeService(
+                    this.trees,
+                    () -> this.overrides,
+                    new AccessPolicy(
+                            this.users,
+                            new InMemoryRoles(DefaultRoles.all()),
+                            this.trees,
+                            () -> this.overrides),
+                    new DirectUnitOfWork());
 
     @Test
     void emptyBeforeSetup() {
-        final TreeService service =
-                new TreeService(new InMemoryTrees(null), FeatureOverrides::none, DIRECT);
-
-        assertThat(service.getTree()).isEmpty();
+        assertThat(this.service.getTree(this.user(UserStatus.ACTIVE))).isEmpty();
     }
 
     @Test
     void appliesConfigurationOverrides() {
         final TreeSettings tree = TreeSettings.create("Smiths", null, Set.of(Feature.MAP_VIEW));
-        final TreeService service =
-                new TreeService(
-                        new InMemoryTrees(tree),
-                        () -> new FeatureOverrides(Map.of(Feature.MAP_VIEW, false)),
-                        DIRECT);
+        this.trees.save(tree);
 
-        final TreeView view = service.getTree().orElseThrow();
+        final TreeView view = this.service.getTree(this.user(UserStatus.ACTIVE)).orElseThrow();
 
         assertThat(view.tree()).isEqualTo(tree);
         assertThat(view.features()).contains(new FeatureState(Feature.MAP_VIEW, false, true));
     }
 
-    private record InMemoryTrees(@Nullable TreeSettings tree) implements TreeSettingsRepository {
+    @Test
+    void anyActiveUserMayReadTheTree() {
+        this.trees.save(TreeSettings.create("Smiths", null, Set.of()));
 
-        @Override
-        public Optional<TreeSettings> find() {
-            return Optional.ofNullable(this.tree);
-        }
+        // No roles at all, but active.
+        assertThat(this.service.getTree(this.user(UserStatus.ACTIVE))).isPresent();
+        assertThatThrownBy(() -> this.service.getTree(this.user(UserStatus.PENDING)))
+                .isInstanceOf(AccessDeniedException.class);
+    }
 
-        @Override
-        public TreeSettings save(final TreeSettings tree) {
-            throw new UnsupportedOperationException();
-        }
+    private UserId user(final UserStatus status) {
+        return this.users.save(Users.user(status)).id();
     }
 }

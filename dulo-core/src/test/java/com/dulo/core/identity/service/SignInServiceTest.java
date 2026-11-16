@@ -8,6 +8,7 @@ import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.testing.DirectUnitOfWork;
 import com.dulo.core.testing.InMemoryUsers;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.identity.IdentityProvider;
 import com.dulo.domain.identity.RegistrationMode;
 import com.dulo.domain.identity.RoleMapping;
 import com.dulo.domain.user.ExternalIdentity;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -38,6 +40,11 @@ class SignInServiceTest {
             new SignInService(
                     this.users,
                     new IdentityProvidersPort() {
+                        @Override
+                        public List<IdentityProvider> providers() {
+                            return List.of();
+                        }
+
                         @Override
                         public Optional<RoleMapping> roleMapping(final String providerId) {
                             return providerId.equals("pocketid")
