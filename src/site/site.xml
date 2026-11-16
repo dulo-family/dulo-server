@@ -9,7 +9,13 @@
   </skin>
 
   <body>
+    <!-- Renders the Mermaid diagrams of the Markdown pages in the browser. -->
+    <head><![CDATA[<script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({ startOnLoad: true });
+    </script>]]></head>
     <menu name="Documentation" inherit="top">
+      <item name="Authentication" href="authentication.html"/>
       <item name="REST API (Swagger UI)" href="api/index.html"/>
       <item name="OpenAPI document" href="api/openapi.json"/>
       <item name="Javadoc" href="apidocs/index.html"/>

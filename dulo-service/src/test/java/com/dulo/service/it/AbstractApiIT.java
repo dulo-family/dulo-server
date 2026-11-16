@@ -30,12 +30,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.JdbcDatabaseContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
+import java.net.ServerSocket;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -52,19 +56,32 @@ import java.util.Set;
  */
 @SpringBootTest(
         classes = DuloApplication.class,
-        webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT,
+        webEnvironment = SpringBootTest.WebEnvironment.DEFINED_PORT,
         properties = {
             "dulo.features.map-view=false",
             "DULO_CONFIG_FILE=/nonexistent/dulo.yaml",
             "dulo.identity.providers.mock.type=oidc",
-            "dulo.identity.providers.mock.issuer-uri=http://localhost/mock",
             "dulo.identity.providers.mock.client-id=dulo",
-            "dulo.identity.providers.mock.role-mappings[family-admins]=admin"
+            "dulo.identity.providers.mock.client-secret=mock-secret",
+            "dulo.identity.providers.mock.role-mappings[family-admins]=admin",
+            "dulo.clients.web.redirect-uris[0]=" + OAuthTestClient.REDIRECT_URI,
+            "dulo.clients.web.sign-in-url=http://127.0.0.1/sign-in"
         })
 abstract class AbstractApiIT {
 
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final JsonMapper JSON = JsonMapper.builder().build();
+
+    /** The identity provider users sign in with. Shared by all databases, never stopped. */
+    private static final GenericContainer<?> IDP =
+            new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:6.1.5")
+                    .withEnv("JSON_CONFIG", "{\"interactiveLogin\": true}")
+                    .withExposedPorts(8080)
+                    .waitingFor(Wait.forHttp("/default/.well-known/openid-configuration"));
+
+    static {
+        IDP.start();
+    }
 
     @LocalServerPort int port;
 
@@ -82,6 +99,23 @@ abstract class AbstractApiIT {
      * @param registry the test's dynamic properties
      * @param db the database container
      */
+    /**
+     * The server runs on a fixed, free port, because its public URL, which ends up in callback URLs
+     * and tokens, must be known before it starts.
+     */
+    @DynamicPropertySource
+    static void server(final DynamicPropertyRegistry registry) throws IOException {
+        final int serverPort;
+        try (final ServerSocket socket = new ServerSocket(0)) {
+            serverPort = socket.getLocalPort();
+        }
+        registry.add("server.port", () -> serverPort);
+        registry.add("dulo.public-url", () -> "http://localhost:" + serverPort);
+        registry.add(
+                "dulo.identity.providers.mock.issuer-uri",
+                () -> "http://localhost:" + IDP.getMappedPort(8080) + "/default");
+    }
+
     static void registerDatabase(
             final DynamicPropertyRegistry registry, final JdbcDatabaseContainer<?> db) {
         registry.add("dulo.database.url", db::getJdbcUrl);
@@ -99,9 +133,125 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void apiNeedsAToken() throws Exception {
+        final HttpResponse<String> response = this.get("/api/v1/tree");
+
+        assertThat(response.statusCode()).isEqualTo(401);
+        assertThat(response.headers().firstValue("WWW-Authenticate"))
+                .hasValueSatisfying(value -> assertThat(value).startsWith("Bearer"));
+        assertThat(JSON.readTree(response.body()).path("type").asString())
+                .isEqualTo("urn:dulo:problem:unauthorized");
+        assertThat(this.get("/api/v1/tree", "not-a-token").statusCode()).isEqualTo(401);
+        // Paths the server does not serve are closed too.
+        assertThat(this.get("/nothing-here").statusCode()).isIn(401, 403);
+    }
+
+    @Test
+    void signInIssuesTokensForTheDuloUser() throws Exception {
+        final OAuthTestClient.Tokens tokens =
+                this.client()
+                        .signIn(
+                                "it-grace",
+                                "{\"email\": \"grace@example.com\", \"groups\": [\"family-admins\"]}");
+        assertThat(tokens.expiresIn()).isBetween(14 * 60L, 15 * 60L);
+        assertThat(tokens.refreshToken()).isNotBlank();
+
+        final UserId id =
+                unitOfWork
+                        .read(() ->
+                                users.findByExternalIdentity(
+                                        new ExternalIdentity("mock", "it-grace")))
+                        .orElseThrow()
+                        .id();
+        final HttpResponse<String> me = this.get("/api/v1/me", tokens.accessToken());
+        assertThat(me.statusCode()).isEqualTo(200);
+        final JsonNode body = JSON.readTree(me.body());
+        assertThat(body.path("id").asString()).isEqualTo(id.toString());
+        assertThat(body.path("email").asString()).isEqualTo("grace@example.com");
+        assertThat(body.path("status").asString()).isEqualTo("active");
+        assertThat(body.path("roles").get(0).asString()).isEqualTo("admin");
+    }
+
+    @Test
+    void pendingUsersAreToldSo() throws Exception {
+        final String token = this.client().signIn("it-pending", "{}").accessToken();
+
+        assertThat(JSON.readTree(this.get("/api/v1/me", token).body()).path("status").asString())
+                .isEqualTo("pending");
+        final HttpResponse<String> tree = this.get("/api/v1/tree", token);
+        assertThat(tree.statusCode()).isEqualTo(403);
+        assertThat(JSON.readTree(tree.body()).path("type").asString())
+                .isEqualTo("urn:dulo:problem:account-pending");
+    }
+
+    @Test
+    void refreshTokensRotate() throws Exception {
+        final OAuthTestClient client = this.client();
+        final OAuthTestClient.Tokens first = client.signIn("it-refresh", "{}");
+
+        final OAuthTestClient.Tokens second = client.refresh(first.refreshToken());
+
+        assertThat(second.accessToken()).isNotEqualTo(first.accessToken());
+        assertThat(second.refreshToken()).isNotEqualTo(first.refreshToken());
+        assertThat(this.get("/api/v1/me", second.accessToken()).statusCode()).isEqualTo(200);
+        // A refresh token works once.
+        final HttpResponse<String> reused =
+                client.tokenRequest(
+                        Map.of(
+                                "grant_type",
+                                "refresh_token",
+                                "refresh_token",
+                                first.refreshToken(),
+                                "client_id",
+                                OAuthTestClient.CLIENT_ID));
+        assertThat(reused.statusCode()).isEqualTo(400);
+        assertThat(reused.body()).contains("invalid_grant");
+    }
+
+    @Test
+    void unknownProviderHintsGoToTheSignInPage() throws Exception {
+        final OAuthTestClient client = this.client();
+
+        final HttpResponse<String> hinted =
+                client.get(client.authorizationUrl("x".repeat(43), "ghost"));
+
+        assertThat(hinted.statusCode()).isEqualTo(302);
+        assertThat(hinted.headers().firstValue("Location")).hasValue("http://127.0.0.1/sign-in");
+    }
+
+    @Test
+    void identityProvidersArePublic() throws Exception {
+        final HttpResponse<String> response = this.get("/api/v1/identity-providers");
+
+        assertThat(response.statusCode()).isEqualTo(200);
+        final JsonNode provider = JSON.readTree(response.body()).get(0);
+        assertThat(provider.path("id").asString()).isEqualTo("mock");
+        assertThat(provider.path("type").asString()).isEqualTo("oidc");
+        assertThat(provider.path("signInPath").asString()).isEqualTo("/oauth2/authorization/mock");
+    }
+
+    @Test
+    void publishesTheStoredSigningKey() throws Exception {
+        final SigningKey key =
+                signingKeys.currentOrCreate(() -> {
+                    throw new AssertionError("The server creates the key on start");
+                });
+
+        final HttpResponse<String> jwks = this.get("/oauth2/jwks");
+
+        assertThat(jwks.statusCode()).isEqualTo(200);
+        assertThat(JSON.readTree(jwks.body()).path("keys").get(0).path("kid").asString())
+                .isEqualTo(key.id());
+        assertThat(jwks.body()).doesNotContain("\"d\"");
+    }
+
+    @Test
     void treeLifecycle() throws Exception {
+        final String token =
+                this.client().signIn("it-tree", "{\"groups\": [\"family-admins\"]}").accessToken();
+
         // Before setup there is no tree.
-        final HttpResponse<String> missing = this.get("/api/v1/tree");
+        final HttpResponse<String> missing = this.get("/api/v1/tree", token);
         assertThat(missing.statusCode()).isEqualTo(404);
         assertThat(missing.headers().firstValue("Content-Type"))
                 .hasValueSatisfying(type -> assertThat(type).contains("application/problem+json"));
@@ -115,7 +265,7 @@ abstract class AbstractApiIT {
         final TreeSettings stored = unitOfWork.write(() -> trees.save(created));
         assertThat(stored.version()).isZero();
 
-        final HttpResponse<String> found = this.get("/api/v1/tree");
+        final HttpResponse<String> found = this.get("/api/v1/tree", token);
         assertThat(found.statusCode()).isEqualTo(200);
         assertThat(found.headers().firstValue("ETag")).contains("\"0\"");
         final JsonNode body = JSON.readTree(found.body());
@@ -200,24 +350,6 @@ abstract class AbstractApiIT {
     }
 
     @Test
-    void signingKeyIsCreatedOnce() {
-        // Longer than any varchar, to check the column holds a whole key.
-        final String material = "{\"k\":\"%s\"}".formatted("x".repeat(20_000));
-
-        final SigningKey first =
-                signingKeys.currentOrCreate(
-                        () -> new SigningKey("it-key", material, Instant.now()));
-        final SigningKey second =
-                signingKeys.currentOrCreate(() -> {
-                    throw new AssertionError("A key exists already");
-                });
-
-        assertThat(second.id()).isEqualTo(first.id());
-        assertThat(second.material()).isEqualTo(first.material());
-        assertThat(second.createdAt()).isCloseTo(first.createdAt(), within(1, ChronoUnit.SECONDS));
-    }
-
-    @Test
     void healthIsUp() throws Exception {
         final HttpResponse<String> health = this.get("/actuator/health/readiness");
 
@@ -225,9 +357,22 @@ abstract class AbstractApiIT {
         assertThat(JSON.readTree(health.body()).path("status").asString()).isEqualTo("UP");
     }
 
+    private OAuthTestClient client() {
+        return new OAuthTestClient("http://localhost:" + port);
+    }
+
     private HttpResponse<String> get(final String path) throws IOException, InterruptedException {
         return HTTP.send(
                 HttpRequest.newBuilder(URI.create("http://localhost:" + port + path)).build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> get(final String path, final String accessToken)
+            throws IOException, InterruptedException {
+        return HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
 }

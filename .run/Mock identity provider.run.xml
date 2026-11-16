@@ -1,0 +1,28 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Mock identity provider" type="docker-deploy" factoryName="docker-image" server-name="Docker">
+    <deployment type="docker-image">
+      <settings>
+        <option name="imageTag" value="ghcr.io/navikt/mock-oauth2-server:6.1.5" />
+        <option name="containerName" value="dulo-mock-idp" />
+        <option name="envVars">
+          <list>
+            <DockerEnvVarImpl>
+              <option name="name" value="JSON_CONFIG" />
+              <option name="value" value="{&quot;interactiveLogin&quot;: true}" />
+            </DockerEnvVarImpl>
+          </list>
+        </option>
+        <option name="portBindings">
+          <list>
+            <DockerPortBindingImpl>
+              <option name="containerPort" value="8080" />
+              <option name="hostPort" value="9090" />
+            </DockerPortBindingImpl>
+          </list>
+        </option>
+        <option name="commandLineOptions" value="--rm" />
+      </settings>
+    </deployment>
+    <method v="2" />
+  </configuration>
+</component>

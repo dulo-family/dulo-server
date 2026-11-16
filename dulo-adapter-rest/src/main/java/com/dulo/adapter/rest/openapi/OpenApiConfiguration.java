@@ -1,8 +1,13 @@
 package com.dulo.adapter.rest.openapi;
 
 import io.swagger.v3.core.converter.ModelConverter;
+import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Info;
+import io.swagger.v3.oas.models.security.OAuthFlow;
+import io.swagger.v3.oas.models.security.OAuthFlows;
+import io.swagger.v3.oas.models.security.Scopes;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import io.swagger.v3.oas.models.servers.ServerVariable;
 import io.swagger.v3.oas.models.servers.ServerVariables;
@@ -34,7 +39,28 @@ class OpenApiConfiguration {
                 new ServerVariable()
                         ._default("http://localhost:8080")
                         .description("Address of your Dulo server");
+        final SecurityScheme oauth2 =
+                new SecurityScheme()
+                        .type(SecurityScheme.Type.OAUTH2)
+                        .description(
+                                "Dulo's own access tokens. Clients use the authorization code"
+                                        + " flow with PKCE; users sign in through one of the"
+                                        + " identity providers listed at"
+                                        + " /api/v1/identity-providers.")
+                        .flows(
+                                new OAuthFlows()
+                                        .authorizationCode(
+                                                new OAuthFlow()
+                                                        .authorizationUrl("/oauth2/authorize")
+                                                        .tokenUrl("/oauth2/token")
+                                                        .refreshUrl("/oauth2/token")
+                                                        .scopes(
+                                                                new Scopes()
+                                                                        .addString(
+                                                                                "openid",
+                                                                                "Sign in"))));
         return new OpenAPI()
+                .components(new Components().addSecuritySchemes(SecuritySchemes.OAUTH2, oauth2))
                 .info(
                         new Info()
                                 .title("Dulo API")

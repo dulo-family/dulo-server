@@ -41,6 +41,8 @@ dulo:
         - https://tree.example.com/auth/callback
       allowed-origins:
         - https://tree.example.com
+      # The web client's page that lists the identity providers. Default: <public-url>/sign-in
+      # sign-in-url: https://tree.example.com/sign-in
 
   registration:
     mode: approval

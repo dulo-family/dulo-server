@@ -4,8 +4,9 @@ Dulo is a self-hosted app for managing family trees. This repository holds the *
 API used by the Dulo web client. Users sign in through an identity provider you already use, such
 as Google, Microsoft or a self-hosted one like Pocket ID.
 
-> **Status:** early development. The foundation (build, configuration, database support) is in
-> place; sign-in, the initial setup and family tree features are coming next.
+> **Status:** early development. The foundation (build, configuration, database support) and
+> sign-in are in place; the initial setup, administration and family tree features are coming
+> next.
 
 **Docs:** [rdlf0.github.io/dulo-server](https://rdlf0.github.io/dulo-server/): REST API reference
 (Swagger UI), the OpenAPI document for generating clients, the Javadoc, and test and coverage reports.
@@ -67,6 +68,13 @@ DULO_DATABASE_PASSWORD=...
 
 The schema is created and upgraded automatically on start.
 
+### Sign-in
+
+Configure at least one identity provider under `dulo.identity.providers` and the web client's
+redirect URIs under `dulo.clients.web`. See the
+[Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page for how sign-in
+works and how to test the API with Postman.
+
 ### Features
 
 Features can be forced on or off with `dulo.features.<feature>: true|false`. Forced features are
@@ -84,12 +92,19 @@ Requirements: JDK 25 and Docker (integration tests use Testcontainers).
 java -jar dulo-service/target/dulo-server-*.jar     # run locally, data in ./data
 ```
 
+To run the server with sign-in, use the development configuration
+[`deploy/dev/dulo.dev.yaml`](deploy/dev/dulo.dev.yaml) and a mock identity provider. In IntelliJ,
+the shared run configuration **Dulo local with mock IdP** (in `.run/`) starts both. Put personal
+settings in `deploy/dev/dulo.local.yaml`, which git ignores and which overrides the development
+configuration.
+
 The project follows a hexagonal architecture:
 
 | Module                         | Contents                                                                       |
 |--------------------------------|--------------------------------------------------------------------------------|
 | `dulo-domain`                  | Domain model. Plain Java; its only dependency is JSpecify (null annotations).  |
 | `dulo-core`                    | Use cases and ports. Depends only on `dulo-domain`.                            |
+| `dulo-adapter-identity`        | OAuth2 authorization server, sign-in through identity providers, token checks. |
 | `dulo-adapter-persistence-jpa` | Database adapter: JPA and Liquibase for SQLite, PostgreSQL, MySQL and MariaDB. |
 | `dulo-adapter-rest`            | REST API adapter.                                                              |
 | `dulo-service`                 | Spring Boot application that wires everything together.                        |

@@ -8,4 +8,6 @@ interface UserJpaRepository extends JpaRepository<UserJpaEntity, String> {
 
     Optional<UserJpaEntity> findByProviderIdAndExternalSubject(
             String providerId, String externalSubject);
+
+    boolean existsByRootTrue();
 }

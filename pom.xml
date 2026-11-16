@@ -20,6 +20,7 @@
   <url>https://github.com/rdlf0/dulo-server</url>
 
   <modules>
+    <module>dulo-adapter-identity</module>
     <module>dulo-adapter-persistence-jpa</module>
     <module>dulo-adapter-rest</module>
     <module>dulo-core</module>
@@ -103,6 +104,11 @@
   <dependencyManagement>
     <dependencies>
       <!-- Internal dependencies -->
+      <dependency>
+        <groupId>com.dulo</groupId>
+        <artifactId>dulo-adapter-identity</artifactId>
+        <version>${project.version}</version>
+      </dependency>
       <dependency>
         <groupId>com.dulo</groupId>
         <artifactId>dulo-adapter-persistence-jpa</artifactId>

@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.identity.IdentityProvider;
+import com.dulo.domain.identity.IdentityProviderType;
 import com.dulo.domain.identity.RegistrationMode;
 import com.dulo.domain.identity.RoleMapping;
 
@@ -44,6 +46,24 @@ class ConfiguredIdentityProvidersTest {
                 .containsExactlyInAnyOrder(new RoleKey("admin"), new RoleKey("editor"));
         assertThat(mapping.defaultRoleIfAny()).contains(new RoleKey("viewer"));
         assertThat(providers.roleMapping("google")).isEmpty();
+    }
+
+    @Test
+    void listsProvidersForTheSignInPage() {
+        final ConfiguredIdentityProviders providers =
+                providers(
+                        Map.of(
+                                "dulo.identity.providers.google.type",
+                                "google",
+                                "dulo.identity.providers.google.client-id",
+                                "abc",
+                                POCKETID + "display-name",
+                                "Pocket ID"));
+
+        assertThat(providers.providers())
+                .containsExactly(
+                        new IdentityProvider("google", "Google", IdentityProviderType.GOOGLE),
+                        new IdentityProvider("pocketid", "Pocket ID", IdentityProviderType.OIDC));
     }
 
     @Test

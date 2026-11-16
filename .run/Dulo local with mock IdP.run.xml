@@ -1,0 +1,7 @@
+<component name="ProjectRunConfigurationManager">
+  <configuration default="false" name="Dulo local with mock IdP" type="CompoundRunConfigurationType">
+    <toRun name="Dulo server (local)" type="Application" />
+    <toRun name="Mock identity provider" type="docker-deploy" />
+    <method v="2" />
+  </configuration>
+</component>

@@ -16,6 +16,10 @@
     <!-- Internal dependencies -->
     <dependency>
       <groupId>com.dulo</groupId>
+      <artifactId>dulo-adapter-identity</artifactId>
+    </dependency>
+    <dependency>
+      <groupId>com.dulo</groupId>
       <artifactId>dulo-adapter-persistence-jpa</artifactId>
     </dependency>
     <dependency>
@@ -116,6 +120,11 @@
     <dependency>
       <groupId>org.springframework.boot</groupId>
       <artifactId>spring-boot-test</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.testcontainers</groupId>
+      <artifactId>testcontainers</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>

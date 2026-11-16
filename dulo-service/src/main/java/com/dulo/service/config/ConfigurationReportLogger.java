@@ -1,6 +1,6 @@
 package com.dulo.service.config;
 
-import com.dulo.core.tree.port.in.GetTreeUseCase;
+import com.dulo.core.setup.port.in.GetSetupStatusUseCase;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,21 +17,20 @@ class ConfigurationReportLogger implements ApplicationListener<ApplicationReadyE
 
     private final ConfigurationReport report;
     private final DuloProperties properties;
-    private final GetTreeUseCase getTree;
+    private final GetSetupStatusUseCase setupStatus;
 
     ConfigurationReportLogger(
             final ConfigurationReport report,
             final DuloProperties properties,
-            final GetTreeUseCase getTree) {
+            final GetSetupStatusUseCase setupStatus) {
         this.report = report;
         this.properties = properties;
-        this.getTree = getTree;
+        this.setupStatus = setupStatus;
     }
 
     @Override
     public void onApplicationEvent(final ApplicationReadyEvent event) {
-        // TODO(M2): use the setup state instead of the tree's existence.
-        final boolean setupPending = getTree.getTree().isEmpty();
+        final boolean setupPending = this.setupStatus.isSetupPending();
         if (setupPending || properties.printConfig()) {
             LOG.info(
                     "{}Merged configuration:\n{}",

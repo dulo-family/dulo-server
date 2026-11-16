@@ -105,6 +105,10 @@
                     "$ref" : "#/$defs/URI",
                     "description" : "Allowed redirect URIs after sign-in."
                   }
+                },
+                "sign-in-url" : {
+                  "$ref" : "#/$defs/URI",
+                  "description" : "The web client's sign-in page, which lists the identity providers. Defaults to /sign-in under the public URL."
                 }
               },
               "additionalProperties" : false,
