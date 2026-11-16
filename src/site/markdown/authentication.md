@@ -109,5 +109,9 @@ Postman supports the authorization code flow with PKCE.
 
 5. Call the API, for example `GET http://localhost:8080/api/v1/me`.
 
+6. Access tokens last 15 minutes. Postman refreshes them with the refresh token (turn on
+   **Auto-refresh access token**, or click **Refresh** in the token manager). Refresh tokens are
+   kept in the server's memory, so after a server restart click **Get New Access Token** again.
+
 curl works too: open the authorize URL in a browser, take the `code` from the redirect, and post it
 with the `code_verifier` to `/oauth2/token`.
