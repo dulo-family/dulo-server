@@ -47,4 +47,8 @@ dulo:
   registration:
     mode: auto
 
+  # A fixed setup token, so you don't have to look for the generated one in the log.
+  setup:
+    token: dev-setup-token
+
   print-config: true

@@ -1,5 +1,7 @@
 package com.dulo.adapter.rest.error;
 
+import com.dulo.core.setup.port.in.InvalidSetupTokenException;
+import com.dulo.core.setup.port.in.SetupCompletedException;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.shared.ConcurrentModificationException;
 
@@ -56,6 +58,29 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                             "Account disabled",
                             e);
         };
+    }
+
+    @ExceptionHandler
+    ProblemDetail setupRequired(final SetupRequiredException e) {
+        return problem(
+                HttpStatus.SERVICE_UNAVAILABLE, ProblemTypes.SETUP_REQUIRED, "Setup required", e);
+    }
+
+    @ExceptionHandler
+    ProblemDetail setupCompleted(final SetupCompletedException e) {
+        return problem(HttpStatus.CONFLICT, ProblemTypes.SETUP_COMPLETED, "Setup completed", e);
+    }
+
+    @ExceptionHandler
+    ProblemDetail invalidSetupToken(final InvalidSetupTokenException e) {
+        return problem(
+                HttpStatus.FORBIDDEN, ProblemTypes.INVALID_SETUP_TOKEN, "Invalid setup token", e);
+    }
+
+    /** The domain checks values with {@link IllegalArgumentException}s that say what's wrong. */
+    @ExceptionHandler
+    ProblemDetail invalid(final IllegalArgumentException e) {
+        return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "Invalid request", e);
     }
 
     @ExceptionHandler

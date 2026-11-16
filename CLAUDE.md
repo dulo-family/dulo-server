@@ -94,6 +94,9 @@ forced values through `FeatureOverridesPort`.
 - Errors outside the controllers (Spring Security rejections, invalid authorization requests,
   unhandled exceptions) go to `/error`, where `ProblemErrorController` turns them into problem
   details. There is no HTML error page.
+- Until the initial setup is done, `SetupRequiredInterceptor` answers 503 for everything under
+  `/api/**` except `SetupWebConfiguration.OPEN_DURING_SETUP`. New endpoints are closed during the
+  setup unless added there.
 - Controllers get the caller as `java.security.Principal` and turn it into a `UserId` with
   `Callers.id`, so the REST adapter needs no Spring Security. Use cases check access through the
   core's `AccessPolicy`; `AccessDeniedException` becomes a 401/403 problem.

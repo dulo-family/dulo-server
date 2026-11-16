@@ -9,6 +9,8 @@ import com.dulo.core.identity.port.out.SigningKeyRepository;
 import com.dulo.core.identity.service.IdentityProviderService;
 import com.dulo.core.identity.service.SignInService;
 import com.dulo.core.identity.service.SigningKeyService;
+import com.dulo.core.setup.port.out.ConfigurationReportPort;
+import com.dulo.core.setup.port.out.SetupTokenPort;
 import com.dulo.core.setup.service.SetupService;
 import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.core.tree.port.out.FeatureOverridesPort;
@@ -52,8 +54,24 @@ public class CoreServicesConfiguration {
     }
 
     @Bean
-    SetupService setupService(final UserRepository users, final UnitOfWork unitOfWork) {
-        return new SetupService(users, unitOfWork);
+    SetupService setupService(
+            final UserRepository users,
+            final RoleRepository roles,
+            final TreeSettingsRepository trees,
+            final IdentityProvidersPort providers,
+            final FeatureOverridesPort featureOverrides,
+            final SetupTokenPort setupToken,
+            final ConfigurationReportPort configurationReport,
+            final UnitOfWork unitOfWork) {
+        return new SetupService(
+                users,
+                roles,
+                trees,
+                providers,
+                featureOverrides,
+                setupToken,
+                configurationReport,
+                unitOfWork);
     }
 
     @Bean

@@ -28,8 +28,14 @@ public class ApiSecurityConfiguration {
 
     /** Endpoints that need no token. */
     static final String[] PUBLIC_ENDPOINTS = {
-        "/api/v1/openapi.json", "/api/v1/identity-providers", "/api/v1/setup/**",
+        "/api/v1/openapi.json", "/api/v1/identity-providers",
     };
+
+    /**
+     * Setup steps that need no access token: the status, and what the setup token protects.
+     * Completing the setup needs a signed-in user, who becomes root.
+     */
+    static final String PUBLIC_SETUP_READS = "/api/v1/setup/**";
 
     /** Headers browsers may send to the API and the token endpoint. */
     private static final List<String> ALLOWED_HEADERS =
@@ -74,6 +80,8 @@ public class ApiSecurityConfiguration {
         http.securityMatcher("/api/**")
                 .authorizeHttpRequests(requests ->
                         requests.requestMatchers(PUBLIC_ENDPOINTS)
+                                .permitAll()
+                                .requestMatchers(HttpMethod.GET, PUBLIC_SETUP_READS)
                                 .permitAll()
                                 .anyRequest()
                                 .authenticated())

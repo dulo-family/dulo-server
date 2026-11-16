@@ -19,6 +19,9 @@
     "description" : "The signed-in user",
     "name" : "Me"
   }, {
+    "description" : "The one-time initial setup. Until it's done, the rest of the API answers 503. The setup token is in the server log, or in dulo.setup.token.",
+    "name" : "Setup"
+  }, {
     "description" : "The family tree of this server",
     "name" : "Tree"
   }, {
@@ -82,6 +85,206 @@
         "tags" : [ "Me" ]
       }
     },
+    "/api/v1/setup" : {
+      "post" : {
+        "description" : "Creates the tree and the roles, and makes the signed-in caller the root user, who may do everything. Works once.",
+        "operationId" : "complete",
+        "parameters" : [ {
+          "description" : "The one-time setup token. The server logs it on start, unless it is set in dulo.setup.token.",
+          "in" : "header",
+          "name" : "X-Dulo-Setup-Token",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/SetupRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/TreeResponse"
+                }
+              }
+            },
+            "description" : "The new tree. Its address is in Location."
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Invalid request, e.g. an unknown feature or a role a provider maps to but the request doesn't define. The problem type is `urn:dulo:problem:validation`."
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No valid access token. The problem type is `urn:dulo:problem:unauthorized`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or wrong setup token. The problem type is `urn:dulo:problem:invalid-setup-token`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The setup is done. The problem type is `urn:dulo:problem:setup-completed`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Complete the setup",
+        "tags" : [ "Setup" ]
+      }
+    },
+    "/api/v1/setup/config" : {
+      "get" : {
+        "description" : "The merged configuration with secrets masked and the source of each value, to check it before completing the setup.",
+        "operationId" : "configuration",
+        "parameters" : [ {
+          "description" : "The one-time setup token. The server logs it on start, unless it is set in dulo.setup.token.",
+          "in" : "header",
+          "name" : "X-Dulo-Setup-Token",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SetupConfigurationResponse"
+                }
+              }
+            },
+            "description" : "The configuration"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or wrong setup token. The problem type is `urn:dulo:problem:invalid-setup-token`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The setup is done. The problem type is `urn:dulo:problem:setup-completed`."
+          }
+        },
+        "summary" : "Get the server's configuration",
+        "tags" : [ "Setup" ]
+      }
+    },
+    "/api/v1/setup/defaults" : {
+      "get" : {
+        "description" : "The built-in roles, the features, and the identity providers with their role mappings.",
+        "operationId" : "defaults",
+        "parameters" : [ {
+          "description" : "The one-time setup token. The server logs it on start, unless it is set in dulo.setup.token.",
+          "in" : "header",
+          "name" : "X-Dulo-Setup-Token",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SetupDefaultsResponse"
+                }
+              }
+            },
+            "description" : "The defaults"
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Missing or wrong setup token. The problem type is `urn:dulo:problem:invalid-setup-token`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The setup is done. The problem type is `urn:dulo:problem:setup-completed`."
+          }
+        },
+        "summary" : "Get what the setup starts from",
+        "tags" : [ "Setup" ]
+      }
+    },
+    "/api/v1/setup/status" : {
+      "get" : {
+        "description" : "Public.",
+        "operationId" : "status",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/SetupStatusResponse"
+                }
+              }
+            },
+            "description" : "Whether the setup is pending"
+          }
+        },
+        "summary" : "Is the setup pending?",
+        "tags" : [ "Setup" ]
+      }
+    },
     "/api/v1/tree" : {
       "get" : {
         "description" : "Returns the tree's name, description and the state of each feature. Every active user may read it.",
@@ -135,6 +338,16 @@
               }
             },
             "description" : "The initial setup is not done yet. The problem type is `urn:dulo:problem:tree-not-initialized`."
+          },
+          "503" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The initial setup isn't done yet. The problem type is `urn:dulo:problem:setup-required`."
           }
         },
         "security" : [ {
@@ -147,6 +360,24 @@
   },
   "components" : {
     "schemas" : {
+      "FeatureAccess" : {
+        "type" : "object",
+        "properties" : {
+          "access" : {
+            "type" : "array",
+            "description" : "Allowed access: view, create, edit, delete.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "feature" : {
+            "type" : "string",
+            "description" : "Feature key, e.g. `people`.",
+            "example" : "people"
+          }
+        },
+        "required" : [ "access", "feature" ]
+      },
       "FeatureResponse" : {
         "type" : "object",
         "properties" : {
@@ -200,7 +431,7 @@
             "type" : "array",
             "description" : "What the user may do right now, per enabled feature. Empty while the account is not active.",
             "items" : {
-              "$ref" : "#/components/schemas/PermissionResponse"
+              "$ref" : "#/components/schemas/FeatureAccess"
             }
           },
           "roles" : {
@@ -220,22 +451,6 @@
           }
         },
         "required" : [ "id", "permissions", "roles", "root", "status" ]
-      },
-      "PermissionResponse" : {
-        "type" : "object",
-        "properties" : {
-          "access" : {
-            "type" : "array",
-            "description" : "Allowed access: view, create, edit, delete.",
-            "items" : {
-              "type" : "string"
-            }
-          },
-          "feature" : {
-            "type" : "string"
-          }
-        },
-        "required" : [ "access", "feature" ]
       },
       "ProblemDetail" : {
         "type" : "object",
@@ -263,6 +478,162 @@
             "format" : "uri"
           }
         }
+      },
+      "RoleRequest" : {
+        "type" : "object",
+        "properties" : {
+          "key" : {
+            "type" : "string",
+            "description" : "Lowercase letters, digits and hyphens.",
+            "example" : "readers"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FeatureAccess"
+            }
+          }
+        },
+        "required" : [ "key", "name", "permissions" ]
+      },
+      "RoleResponse" : {
+        "type" : "object",
+        "properties" : {
+          "builtIn" : {
+            "type" : "boolean",
+            "description" : "Admin, editor, contributor and viewer are built in."
+          },
+          "key" : {
+            "type" : "string",
+            "description" : "Lowercase letters, digits and hyphens.",
+            "example" : "editor"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "permissions" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/FeatureAccess"
+            }
+          }
+        },
+        "required" : [ "builtIn", "key", "name", "permissions" ]
+      },
+      "SetupConfigurationResponse" : {
+        "type" : "object",
+        "properties" : {
+          "configuration" : {
+            "type" : "string",
+            "description" : "The merged configuration as YAML, with secrets masked and the source of each value as a comment."
+          }
+        },
+        "required" : [ "configuration" ]
+      },
+      "SetupDefaultsResponse" : {
+        "type" : "object",
+        "properties" : {
+          "features" : {
+            "type" : "array",
+            "description" : "The features that can be switched. Locked features are forced by the configuration.",
+            "items" : {
+              "$ref" : "#/components/schemas/FeatureResponse"
+            }
+          },
+          "identityProviders" : {
+            "type" : "array",
+            "description" : "The identity providers and how their claims map to roles. They come from the configuration and can't be changed here.",
+            "items" : {
+              "$ref" : "#/components/schemas/SetupIdentityProviderResponse"
+            }
+          },
+          "registrationMode" : {
+            "type" : "string",
+            "description" : "Whether new users are active right away (`auto`) or wait for approval (`approval`).",
+            "enum" : [ "auto", "approval" ]
+          },
+          "roles" : {
+            "type" : "array",
+            "description" : "The built-in roles with their default permissions.",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleResponse"
+            }
+          }
+        },
+        "required" : [ "features", "identityProviders", "registrationMode", "roles" ]
+      },
+      "SetupIdentityProviderResponse" : {
+        "type" : "object",
+        "properties" : {
+          "defaultRole" : {
+            "type" : [ "string", "null" ],
+            "description" : "The role of users whose claims match no mapping."
+          },
+          "displayName" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "roleMappings" : {
+            "type" : "object",
+            "additionalProperties" : {
+              "type" : "array",
+              "items" : {
+                "type" : "string"
+              }
+            },
+            "description" : "Claim value to the role keys it grants."
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "oidc", "google", "microsoft" ]
+          }
+        },
+        "required" : [ "displayName", "id", "roleMappings", "type" ]
+      },
+      "SetupRequest" : {
+        "type" : "object",
+        "properties" : {
+          "description" : {
+            "type" : [ "string", "null" ],
+            "description" : "At most 2000 characters."
+          },
+          "enabledFeatures" : {
+            "type" : "array",
+            "description" : "Keys of the features to switch on. Features the configuration forces keep their forced state.",
+            "example" : [ "people", "families", "tree-view" ],
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "name" : {
+            "type" : "string",
+            "description" : "The tree's name, 1-200 characters.",
+            "example" : "The Smiths"
+          },
+          "roles" : {
+            "type" : [ "array", "null" ],
+            "description" : "Roles to create or change. Built-in roles that are left out get their default permissions. Every role an identity provider maps to must exist.",
+            "items" : {
+              "$ref" : "#/components/schemas/RoleRequest"
+            }
+          }
+        },
+        "required" : [ "enabledFeatures", "name" ]
+      },
+      "SetupStatusResponse" : {
+        "type" : "object",
+        "properties" : {
+          "pending" : {
+            "type" : "boolean",
+            "description" : "True until the initial setup is done. Until then the rest of the API answers 503."
+          }
+        },
+        "required" : [ "pending" ]
       },
       "TreeResponse" : {
         "type" : "object",
