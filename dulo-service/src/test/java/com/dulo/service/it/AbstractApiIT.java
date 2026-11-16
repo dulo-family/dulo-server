@@ -194,6 +194,9 @@ abstract class AbstractApiIT {
         assertThat(second.accessToken()).isNotEqualTo(first.accessToken());
         assertThat(second.refreshToken()).isNotEqualTo(first.refreshToken());
         assertThat(this.get("/api/v1/me", second.accessToken()).statusCode()).isEqualTo(200);
+        // Postman sends the client id in a Basic header with no password.
+        final OAuthTestClient.Tokens third = client.refreshWithBasicHeader(second.refreshToken());
+        assertThat(this.get("/api/v1/me", third.accessToken()).statusCode()).isEqualTo(200);
         // A refresh token works once.
         final HttpResponse<String> reused =
                 client.tokenRequest(

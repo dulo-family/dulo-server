@@ -18,9 +18,11 @@ import org.springframework.security.oauth2.server.authorization.client.Registere
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.token.DefaultOAuth2TokenContext;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Objects;
 
@@ -45,6 +47,11 @@ class PublicClientRefreshTokenTest {
         request.setParameter("refresh_token", "token");
         request.setParameter("client_id", "dulo-web");
         return request;
+    }
+
+    private static String basic(final String credentials) {
+        return "Basic "
+                + Base64.getEncoder().encodeToString(credentials.getBytes(StandardCharsets.UTF_8));
     }
 
     @Test
@@ -93,6 +100,53 @@ class PublicClientRefreshTokenTest {
 
         assertThatThrownBy(() -> this.converter.convert(request))
                 .isInstanceOf(OAuth2AuthenticationException.class);
+    }
+
+    @Test
+    void acceptsTheClientInABasicHeaderWithoutPassword() {
+        final MockHttpServletRequest header = refreshRequest();
+        header.removeParameter("client_id");
+        header.addHeader("Authorization", basic("dulo-web:"));
+        final MockHttpServletRequest both = refreshRequest();
+        both.addHeader("Authorization", basic("dulo-web:"));
+        final MockHttpServletRequest emptySecret = refreshRequest();
+        emptySecret.setParameter("client_secret", "");
+
+        for (final MockHttpServletRequest request :
+                new MockHttpServletRequest[] {header, both, emptySecret}) {
+            assertThat(this.provider.authenticate(this.converter.convert(request)))
+                    .isInstanceOfSatisfying(
+                            OAuth2ClientAuthenticationToken.class,
+                            t -> assertThat(t.getRegisteredClient()).isEqualTo(this.web));
+        }
+    }
+
+    @Test
+    void leavesOtherAuthorizationHeadersToSpring() {
+        for (final String value :
+                new String[] {
+                    basic("dulo-web:secret"),
+                    basic("dulo-web"),
+                    basic(":"),
+                    "Basic not-base64!",
+                    "Bearer token",
+                }) {
+            final MockHttpServletRequest request = refreshRequest();
+            request.addHeader("Authorization", value);
+
+            assertThat(this.converter.convert(request)).as(value).isNull();
+        }
+    }
+
+    @Test
+    void rejectsAHeaderAndParameterForDifferentClients() {
+        final MockHttpServletRequest request = refreshRequest();
+        request.addHeader("Authorization", basic("other:"));
+
+        assertThatThrownBy(() -> this.converter.convert(request))
+                .isInstanceOfSatisfying(
+                        OAuth2AuthenticationException.class,
+                        e -> assertThat(e.getError().getErrorCode()).isEqualTo("invalid_request"));
     }
 
     @Test
