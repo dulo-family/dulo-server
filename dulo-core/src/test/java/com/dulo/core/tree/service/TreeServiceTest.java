@@ -10,11 +10,14 @@ import com.dulo.core.testing.InMemoryTrees;
 import com.dulo.core.testing.InMemoryUsers;
 import com.dulo.core.testing.Users;
 import com.dulo.core.tree.port.in.TreeView;
+import com.dulo.core.tree.port.in.UpdateTreeUseCase;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.feature.FeatureState;
+import com.dulo.domain.shared.ConcurrentModificationException;
+import com.dulo.domain.shared.NotFoundException;
 import com.dulo.domain.tree.TreeSettings;
 import com.dulo.domain.user.UserId;
 import com.dulo.domain.user.UserStatus;
@@ -69,5 +72,52 @@ class TreeServiceTest {
 
     private UserId user(final UserStatus status) {
         return this.users.save(Users.user(status)).id();
+    }
+
+    @Test
+    void administratorsChangeTheTree() {
+        final TreeSettings tree =
+                this.trees.save(TreeSettings.create("The Smiths", "Since 1820", Set.of()));
+        final UserId admin =
+                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.ADMIN)).id();
+
+        final TreeView renamed =
+                this.service.updateTree(
+                        admin,
+                        tree.version(),
+                        new UpdateTreeUseCase.TreeChange(
+                                "Smith family", null, Set.of(Feature.TIMELINE)));
+
+        assertThat(renamed.tree().name()).isEqualTo("Smith family");
+        assertThat(renamed.tree().description()).isEqualTo("Since 1820");
+        assertThat(renamed.tree().enabledFeatures()).contains(Feature.TIMELINE);
+        final TreeView cleared =
+                this.service.updateTree(
+                        admin,
+                        renamed.tree().version(),
+                        new UpdateTreeUseCase.TreeChange(null, "", null));
+        assertThat(cleared.tree().name()).isEqualTo("Smith family");
+        assertThat(cleared.tree().description()).isNull();
+        assertThat(cleared.tree().enabledFeatures()).contains(Feature.TIMELINE);
+    }
+
+    @Test
+    void treeChangesNeedAdministrationAndTheCurrentVersion() {
+        final TreeSettings tree =
+                this.trees.save(TreeSettings.create("The Smiths", null, Set.of()));
+        final UserId editor =
+                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.EDITOR)).id();
+        final UserId admin =
+                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.ADMIN)).id();
+        final UpdateTreeUseCase.TreeChange change =
+                new UpdateTreeUseCase.TreeChange("Renamed", null, null);
+
+        assertThatThrownBy(() -> this.service.updateTree(editor, tree.version(), change))
+                .isInstanceOf(AccessDeniedException.class);
+        assertThatThrownBy(() -> this.service.updateTree(admin, tree.version() + 1, change))
+                .isInstanceOf(ConcurrentModificationException.class);
+        this.trees.clear();
+        assertThatThrownBy(() -> this.service.updateTree(admin, 0, change))
+                .isInstanceOf(NotFoundException.class);
     }
 }

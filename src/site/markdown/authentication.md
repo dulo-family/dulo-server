@@ -68,6 +68,25 @@ provider is configured, or the authorization request names one with `idp=<provid
   provider's `default-role`.
 - Google sends no group claims, so Google users depend on the default role and on roles assigned
   by hand.
+- Administrators (edit access to the `administration` feature, which the built-in admin role has)
+  approve, disable and reactivate users and assign roles with `PATCH /api/v1/admin/users/{id}`,
+  and manage roles at `/api/v1/admin/roles`. Nobody can change their own status or the root
+  user's. Only root can change the built-in roles, and nobody can delete them. A role that users
+  have or that an identity provider maps to can't be deleted.
+- **Partial administrators stay partial.** Unless they're root, administrators can only grant
+  what they may do themselves:
+  - every role they assign must grant no more than their own roles do;
+  - they can only change users who may do no more than they may;
+  - they can only create, change or delete roles within their own permissions.
+
+  The reason: without these rules, a role meant only to approve new users (for example
+  `administration: [view, edit]`) could give its holder the admin role, or widen itself to every
+  permission, which would make any administration access the same as full administration. With
+  them, the built-in admin role, which has every permission, works as before, and a narrower role
+  stays as narrow as root made it. To let a moderator hand out a role, give the moderator's role at
+  least that role's permissions.
+- Changes send the version they're based on in `If-Match` (the `ETag` of the last read), so a
+  change to an outdated copy fails with 412 instead of overwriting someone else's change.
 
 ## Initial setup
 

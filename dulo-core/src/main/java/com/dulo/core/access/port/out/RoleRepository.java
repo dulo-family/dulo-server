@@ -26,4 +26,12 @@ public interface RoleRepository {
      *     stale
      */
     Role save(Role role);
+
+    /**
+     * Deletes a role.
+     *
+     * @throws com.dulo.domain.shared.ConcurrentModificationException if {@code role.version()} is
+     *     stale
+     */
+    void delete(Role role);
 }

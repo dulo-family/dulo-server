@@ -4,6 +4,8 @@ import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
 import com.dulo.core.access.service.AccessPolicy;
 import com.dulo.core.access.service.CurrentUserService;
+import com.dulo.core.access.service.RoleAdministrationService;
+import com.dulo.core.access.service.UserAdministrationService;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.identity.port.out.SigningKeyRepository;
 import com.dulo.core.identity.service.IdentityProviderService;
@@ -54,6 +56,16 @@ public class CoreServicesConfiguration {
     }
 
     @Bean
+    RoleAdministrationService roleAdministrationService(
+            final RoleRepository roles,
+            final UserRepository users,
+            final IdentityProvidersPort providers,
+            final AccessPolicy accessPolicy,
+            final UnitOfWork unitOfWork) {
+        return new RoleAdministrationService(roles, users, providers, accessPolicy, unitOfWork);
+    }
+
+    @Bean
     SetupService setupService(
             final UserRepository users,
             final RoleRepository roles,
@@ -87,6 +99,15 @@ public class CoreServicesConfiguration {
     SigningKeyService signingKeyService(
             final SigningKeyRepository keys, final UnitOfWork unitOfWork) {
         return new SigningKeyService(keys, unitOfWork);
+    }
+
+    @Bean
+    UserAdministrationService userAdministrationService(
+            final UserRepository users,
+            final RoleRepository roles,
+            final AccessPolicy accessPolicy,
+            final UnitOfWork unitOfWork) {
+        return new UserAdministrationService(users, roles, accessPolicy, unitOfWork);
     }
 
     @Bean

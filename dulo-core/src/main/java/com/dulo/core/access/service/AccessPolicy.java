@@ -9,6 +9,7 @@ import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.AccessDeniedException.Reason;
 import com.dulo.domain.access.Permissions;
 import com.dulo.domain.access.Role;
+import com.dulo.domain.access.RoleKey;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.user.Actor;
@@ -116,10 +117,23 @@ public class AccessPolicy {
         return new Permissions(enabled);
     }
 
-    private Permissions rolePermissions(final User user) {
-        return this.roles.findAllByKeys(user.roles()).stream()
+    /**
+     * What a user's roles grant, whatever their status and whether the features are enabled:
+     * everything for root.
+     */
+    public Permissions grantedTo(final User user) {
+        return user.root() ? Permissions.all() : this.rolePermissions(user);
+    }
+
+    /** What the roles grant together; roles that don't exist grant nothing. */
+    public Permissions grantedBy(final Set<RoleKey> roles) {
+        return this.roles.findAllByKeys(roles).stream()
                 .map(Role::permissions)
                 .reduce(Permissions.none(), Permissions::union);
+    }
+
+    private Permissions rolePermissions(final User user) {
+        return this.grantedBy(user.roles());
     }
 
     private boolean isEnabled(final Feature feature) {

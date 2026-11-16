@@ -120,6 +120,23 @@ The build adds the Swagger UI files and `api/openapi.json` next to it.
 - Keep the architecture rules green (`ArchitectureTest`): `dulo-domain` and `dulo-core` must
   not depend on frameworks, and adapters must not depend on each other.
 
+## Adding an API endpoint
+
+- The controller calls a `port.in` use case and gets the caller with `Callers.id(principal)`.
+- The use case checks access in the core, inside its unit of work:
+  `accessPolicy.require(caller, feature, access)` for a feature, or `requireActive(caller)` when
+  every active user may do it. Never check permissions in the controller: other APIs, such as MCP
+  later, call the same use cases.
+- Until the initial setup is done, everything under `/api/**` answers 503. An endpoint that must
+  work during the setup goes in `SetupWebConfiguration.OPEN_DURING_SETUP`, and one that needs no
+  access token in `ApiSecurityConfiguration`.
+- Resources that can change have a version. Responses send it as the `ETag`, and changes must send
+  it back in `If-Match` (`Versions.fromIfMatch`): a missing header is a 428 problem, an outdated
+  version a 412.
+- Errors are problem details with a `urn:dulo:problem:*` type, mapped in `ApiExceptionHandler`.
+  Document each response with `@ApiResponse`, then regenerate the OpenAPI document (below).
+- Add an integration test to `AbstractApiIT`, which runs on all four databases.
+
 ## Test coverage
 
 `./mvnw verify` writes a coverage report per module and one for all modules together, including

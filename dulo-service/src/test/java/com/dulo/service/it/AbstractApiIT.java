@@ -52,6 +52,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 /**
@@ -389,6 +390,311 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void administratorsApproveUsersAndAssignRoles() throws Exception {
+        this.completeSetupIfPending();
+        final String admin =
+                this.client().signIn("it-admin", "{\"groups\": [\"family-admins\"]}").accessToken();
+        final String newcomer = this.client().signIn("it-newcomer", "{}").accessToken();
+        final String newcomerId =
+                JSON.readTree(this.get("/api/v1/me", newcomer).body()).path("id").asString();
+        final String path = "/api/v1/admin/users/" + newcomerId;
+
+        // A pending user can't read the tree or administer anyone.
+        assertThat(problemType(this.get("/api/v1/tree", newcomer)))
+                .isEqualTo("urn:dulo:problem:account-pending");
+        assertThat(this.get("/api/v1/admin/users", newcomer).statusCode()).isEqualTo(403);
+
+        final JsonNode users = JSON.readTree(this.get("/api/v1/admin/users", admin).body());
+        assertThat(users.findValuesAsString("id")).contains(newcomerId);
+        final HttpResponse<String> read = this.get(path, admin);
+        assertThat(read.statusCode()).isEqualTo(200);
+        assertThat(JSON.readTree(read.body()).path("status").asString()).isEqualTo("pending");
+        final String etag = read.headers().firstValue("ETag").orElseThrow();
+
+        final String approve = "{\"status\": \"active\", \"manualRoles\": [\"viewer\"]}";
+        final HttpResponse<String> noIfMatch = this.call("PATCH", path, admin, approve);
+        assertThat(noIfMatch.statusCode()).isEqualTo(428);
+        assertThat(problemType(noIfMatch)).isEqualTo("urn:dulo:problem:precondition-required");
+        final HttpResponse<String> stale =
+                this.call("PATCH", path, admin, approve, "If-Match", "\"99\"");
+        assertThat(stale.statusCode()).isEqualTo(412);
+        assertThat(problemType(stale)).isEqualTo("urn:dulo:problem:concurrent-modification");
+        final HttpResponse<String> unknownRole =
+                this.call(
+                        "PATCH", path, admin, "{\"manualRoles\": [\"ghosts\"]}", "If-Match", etag);
+        assertThat(unknownRole.statusCode()).isEqualTo(400);
+        assertThat(problemType(unknownRole)).isEqualTo("urn:dulo:problem:validation");
+
+        final HttpResponse<String> approved =
+                this.call("PATCH", path, admin, approve, "If-Match", etag);
+        assertThat(approved.statusCode()).as(approved.body()).isEqualTo(200);
+        assertThat(approved.headers().firstValue("ETag"))
+                .isPresent()
+                .isNotEqualTo(Optional.of(etag));
+        final JsonNode user = JSON.readTree(approved.body());
+        assertThat(user.path("status").asString()).isEqualTo("active");
+        assertThat(user.path("manualRoles").get(0).asString()).isEqualTo("viewer");
+
+        // Now a viewer: the tree is open, the administration isn't.
+        assertThat(this.get("/api/v1/tree", newcomer).statusCode()).isEqualTo(200);
+        final HttpResponse<String> forbidden = this.get("/api/v1/admin/users", newcomer);
+        assertThat(forbidden.statusCode()).isEqualTo(403);
+        assertThat(problemType(forbidden)).isEqualTo("urn:dulo:problem:forbidden");
+        assertThat(this.get("/api/v1/admin/roles", newcomer).statusCode()).isEqualTo(403);
+
+        // Administrators can't lock themselves out.
+        final String adminId =
+                JSON.readTree(this.get("/api/v1/me", admin).body()).path("id").asString();
+        final HttpResponse<String> self = this.get("/api/v1/admin/users/" + adminId, admin);
+        assertThat(
+                        this.call(
+                                        "PATCH",
+                                        "/api/v1/admin/users/" + adminId,
+                                        admin,
+                                        "{\"status\": \"disabled\"}",
+                                        "If-Match",
+                                        self.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(this.get("/api/v1/admin/users/" + UserId.newId(), admin).statusCode())
+                .isEqualTo(404);
+    }
+
+    @Test
+    void administratorsManageRoles() throws Exception {
+        this.completeSetupIfPending();
+        final String admin =
+                this.client()
+                        .signIn("it-role-admin", "{\"groups\": [\"family-admins\"]}")
+                        .accessToken();
+        final String root = this.client().signIn("it-root", "{}").accessToken();
+        final String role =
+                """
+                {"key": "it-helpers", "name": "Helpers",
+                 "permissions": [{"feature": "places", "access": ["view", "create"]}]}
+                """;
+
+        final HttpResponse<String> created = this.call("POST", "/api/v1/admin/roles", admin, role);
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        assertThat(created.headers().firstValue("Location"))
+                .hasValue("/api/v1/admin/roles/it-helpers");
+        final HttpResponse<String> duplicate =
+                this.call("POST", "/api/v1/admin/roles", admin, role);
+        assertThat(duplicate.statusCode()).isEqualTo(409);
+        assertThat(problemType(duplicate)).isEqualTo("urn:dulo:problem:role-exists");
+        final HttpResponse<String> renamed =
+                this.call(
+                        "PATCH",
+                        "/api/v1/admin/roles/it-helpers",
+                        admin,
+                        "{\"name\": \"Helpers of the tree\"}",
+                        "If-Match",
+                        created.headers().firstValue("ETag").orElseThrow());
+        assertThat(renamed.statusCode()).isEqualTo(200);
+        final JsonNode helpers = JSON.readTree(renamed.body());
+        assertThat(helpers.path("name").asString()).isEqualTo("Helpers of the tree");
+        assertThat(helpers.path("permissions").get(0).path("access")).hasSize(2);
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/admin/roles", admin).body())
+                                .findValuesAsString("key"))
+                .contains("admin", "viewer", "it-helpers");
+
+        // Built-in roles: only root changes them, nobody deletes them.
+        final String viewerETag =
+                this.get("/api/v1/admin/roles/viewer", admin)
+                        .headers()
+                        .firstValue("ETag")
+                        .orElseThrow();
+        final String sameName = "{\"name\": \"Viewer\"}";
+        assertThat(
+                        this.call(
+                                        "PATCH",
+                                        "/api/v1/admin/roles/viewer",
+                                        admin,
+                                        sameName,
+                                        "If-Match",
+                                        viewerETag)
+                                .statusCode())
+                .isEqualTo(403);
+        final HttpResponse<String> byRoot =
+                this.call(
+                        "PATCH",
+                        "/api/v1/admin/roles/viewer",
+                        root,
+                        sameName,
+                        "If-Match",
+                        viewerETag);
+        assertThat(byRoot.statusCode()).as(byRoot.body()).isEqualTo(200);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/admin/roles/viewer",
+                                        root,
+                                        null,
+                                        "If-Match",
+                                        byRoot.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(400);
+
+        // A role in use stays; an unused one goes.
+        final String helperId =
+                JSON.readTree(
+                                this.get(
+                                                "/api/v1/me",
+                                                this.client()
+                                                        .signIn("it-helper", "{}")
+                                                        .accessToken())
+                                        .body())
+                        .path("id")
+                        .asString();
+        final String helperPath = "/api/v1/admin/users/" + helperId;
+        assertThat(
+                        this.call(
+                                        "PATCH",
+                                        helperPath,
+                                        admin,
+                                        "{\"manualRoles\": [\"it-helpers\"]}",
+                                        "If-Match",
+                                        this.get(helperPath, admin)
+                                                .headers()
+                                                .firstValue("ETag")
+                                                .orElseThrow())
+                                .statusCode())
+                .isEqualTo(200);
+        final String helpersETag = renamed.headers().firstValue("ETag").orElseThrow();
+        final HttpResponse<String> inUse =
+                this.call(
+                        "DELETE",
+                        "/api/v1/admin/roles/it-helpers",
+                        admin,
+                        null,
+                        "If-Match",
+                        helpersETag);
+        assertThat(inUse.statusCode()).isEqualTo(409);
+        assertThat(problemType(inUse)).isEqualTo("urn:dulo:problem:role-in-use");
+        final JsonNode usage = JSON.readTree(inUse.body());
+        assertThat(usage.path("users")).hasSize(1);
+        assertThat(usage.path("users").get(0).asString()).isEqualTo(helperId);
+        assertThat(usage.path("identityProviders")).isEmpty();
+        assertThat(usage.path("detail").asString()).contains("1 user has it");
+        assertThat(
+                        this.call(
+                                        "PATCH",
+                                        helperPath,
+                                        admin,
+                                        "{\"manualRoles\": []}",
+                                        "If-Match",
+                                        this.get(helperPath, admin)
+                                                .headers()
+                                                .firstValue("ETag")
+                                                .orElseThrow())
+                                .statusCode())
+                .isEqualTo(200);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/admin/roles/it-helpers",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        helpersETag)
+                                .statusCode())
+                .isEqualTo(204);
+        final HttpResponse<String> gone = this.get("/api/v1/admin/roles/it-helpers", admin);
+        assertThat(gone.statusCode()).isEqualTo(404);
+        assertThat(problemType(gone)).isEqualTo("urn:dulo:problem:not-found");
+    }
+
+    @Test
+    void partialAdministratorsCantGrantMoreThanTheyHave() throws Exception {
+        this.completeSetupIfPending();
+        final String root = this.client().signIn("it-root", "{}").accessToken();
+        final String moderator = this.client().signIn("it-moderator", "{}").accessToken();
+        final String moderatorPath =
+                "/api/v1/admin/users/"
+                        + JSON.readTree(this.get("/api/v1/me", moderator).body())
+                                .path("id")
+                                .asString();
+
+        // Root makes a role that may approve users and see people, and gives it to the moderator.
+        final HttpResponse<String> created =
+                this.call(
+                        "POST",
+                        "/api/v1/admin/roles",
+                        root,
+                        """
+                        {"key": "it-moderators", "name": "Moderators",
+                         "permissions": [{"feature": "administration", "access": ["view", "edit"]},
+                                         {"feature": "people", "access": ["view"]}]}
+                        """);
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        final HttpResponse<String> assigned =
+                this.call(
+                        "PATCH",
+                        moderatorPath,
+                        root,
+                        "{\"status\": \"active\", \"manualRoles\": [\"it-moderators\"]}",
+                        "If-Match",
+                        this.get(moderatorPath, root).headers().firstValue("ETag").orElseThrow());
+        assertThat(assigned.statusCode()).as(assigned.body()).isEqualTo(200);
+
+        // The moderator can't make themselves an administrator, nor widen their role.
+        final HttpResponse<String> selfPromotion =
+                this.call(
+                        "PATCH",
+                        moderatorPath,
+                        moderator,
+                        "{\"manualRoles\": [\"it-moderators\", \"admin\"]}",
+                        "If-Match",
+                        assigned.headers().firstValue("ETag").orElseThrow());
+        assertThat(selfPromotion.statusCode()).isEqualTo(403);
+        assertThat(problemType(selfPromotion)).isEqualTo("urn:dulo:problem:forbidden");
+        assertThat(JSON.readTree(selfPromotion.body()).path("detail").asString())
+                .contains("'admin'");
+        final HttpResponse<String> widened =
+                this.call(
+                        "PATCH",
+                        "/api/v1/admin/roles/it-moderators",
+                        moderator,
+                        "{\"permissions\": [{\"feature\": \"administration\","
+                                + " \"access\": [\"view\", \"create\", \"edit\", \"delete\"]}]}",
+                        "If-Match",
+                        created.headers().firstValue("ETag").orElseThrow());
+        assertThat(widened.statusCode()).isEqualTo(403);
+    }
+
+    @Test
+    void administratorsChangeTheTree() throws Exception {
+        this.completeSetupIfPending();
+        final String admin =
+                this.client()
+                        .signIn("it-tree-admin", "{\"groups\": [\"family-admins\"]}")
+                        .accessToken();
+        final String viewer = this.client().signIn("it-tree-viewer", "{}").accessToken();
+        final String etag =
+                this.get("/api/v1/tree", admin).headers().firstValue("ETag").orElseThrow();
+        final String change =
+                "{\"description\": \"Changed in a test\", \"enabledFeatures\": [\"people\", \"timeline\"]}";
+
+        assertThat(
+                        this.call("PATCH", "/api/v1/tree", viewer, change, "If-Match", etag)
+                                .statusCode())
+                .isEqualTo(403);
+        final HttpResponse<String> changed =
+                this.call("PATCH", "/api/v1/tree", admin, change, "If-Match", etag);
+        assertThat(changed.statusCode()).as(changed.body()).isEqualTo(200);
+        final JsonNode tree = JSON.readTree(changed.body());
+        assertThat(tree.path("description").asString()).isEqualTo("Changed in a test");
+        assertThat(feature(tree, "timeline").path("enabled").asBoolean()).isTrue();
+        assertThat(feature(tree, "families").path("enabled").asBoolean()).isFalse();
+        assertThat(changed.headers().firstValue("ETag"))
+                .isPresent()
+                .isNotEqualTo(Optional.of(etag));
+        assertThat(this.call("PATCH", "/api/v1/tree", admin, change, "If-Match", etag).statusCode())
+                .isEqualTo(412);
+    }
+
+    @Test
     void treeSettingsRoundTrip() throws Exception {
         this.completeSetupIfPending();
         final TreeSettings stored = unitOfWork.read(trees::find).orElseThrow();
@@ -533,6 +839,31 @@ abstract class AbstractApiIT {
                         SETUP_TOKEN,
                         "{\"name\": \"The Smiths\", \"enabledFeatures\": [\"people\"]}");
         assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+    }
+
+    /** A request with an access token, an optional JSON body and header name-value pairs. */
+    private HttpResponse<String> call(
+            final String method,
+            final String path,
+            final String accessToken,
+            final @Nullable String json,
+            final String... headers)
+            throws IOException, InterruptedException {
+        final HttpRequest.Builder request =
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                        .method(
+                                method,
+                                json == null
+                                        ? HttpRequest.BodyPublishers.noBody()
+                                        : HttpRequest.BodyPublishers.ofString(json))
+                        .header("Authorization", "Bearer " + accessToken);
+        if (json != null) {
+            request.header("Content-Type", "application/json");
+        }
+        if (headers.length > 0) {
+            request.headers(headers);
+        }
+        return HTTP.send(request.build(), HttpResponse.BodyHandlers.ofString());
     }
 
     /** A request with optional access token, setup token and JSON body. */

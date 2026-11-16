@@ -22,6 +22,11 @@ public final class ProblemTypes {
             URI.create("urn:dulo:problem:invalid-setup-token");
 
     public static final URI VALIDATION = URI.create("urn:dulo:problem:validation");
+    public static final URI NOT_FOUND = URI.create("urn:dulo:problem:not-found");
+    public static final URI PRECONDITION_REQUIRED =
+            URI.create("urn:dulo:problem:precondition-required");
+    public static final URI ROLE_EXISTS = URI.create("urn:dulo:problem:role-exists");
+    public static final URI ROLE_IN_USE = URI.create("urn:dulo:problem:role-in-use");
 
     private ProblemTypes() {}
 }

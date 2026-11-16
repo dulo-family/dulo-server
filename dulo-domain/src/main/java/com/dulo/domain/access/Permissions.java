@@ -45,6 +45,12 @@ public record Permissions(Map<Feature, Set<Access>> grants) {
         return grants.getOrDefault(feature, Set.of());
     }
 
+    /** Whether these permissions grant everything the other ones do, and maybe more. */
+    public boolean covers(final Permissions other) {
+        return Arrays.stream(Feature.values())
+                .allMatch(f -> this.accessTo(f).containsAll(other.accessTo(f)));
+    }
+
     /** Everything either this or the other permissions grant. */
     public Permissions union(final Permissions other) {
         final Map<Feature, Set<Access>> merged = new EnumMap<>(Feature.class);

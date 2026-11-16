@@ -100,6 +100,9 @@ forced values through `FeatureOverridesPort`.
 - Controllers get the caller as `java.security.Principal` and turn it into a `UserId` with
   `Callers.id`, so the REST adapter needs no Spring Security. Use cases check access through the
   core's `AccessPolicy`; `AccessDeniedException` becomes a 401/403 problem.
+- Changes use optimistic locking over HTTP: the version is the `ETag`, and changes read
+  `If-Match` with `Versions.fromIfMatch` (missing: 428, outdated: 412). Admin endpoints are under
+  `/api/v1/admin/**`; CONTRIBUTING.md has the checklist for new endpoints.
 - `RequiredRecordComponentsConverter` marks every response record component as required unless
   it's `@Nullable`.
 - The spec's version is the API version (`OpenApiConfiguration.API_VERSION`), not the server

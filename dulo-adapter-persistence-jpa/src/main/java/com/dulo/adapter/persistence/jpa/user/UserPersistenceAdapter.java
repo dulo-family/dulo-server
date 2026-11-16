@@ -9,6 +9,7 @@ import com.dulo.domain.user.UserId;
 import com.dulo.domain.user.UserStatus;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
@@ -62,6 +63,14 @@ public class UserPersistenceAdapter implements UserRepository {
                 entity.getVersion());
     }
 
+    /** Ids are UUIDv7, so sorting by id puts the oldest user first. */
+    @Override
+    public List<User> findAll() {
+        return this.repository.findAllByOrderByIdAsc().stream()
+                .map(UserPersistenceAdapter::toDomain)
+                .toList();
+    }
+
     @Override
     public Optional<User> findById(final UserId id) {
         return this.repository.findById(id.toString()).map(UserPersistenceAdapter::toDomain);
@@ -72,6 +81,13 @@ public class UserPersistenceAdapter implements UserRepository {
         return this.repository
                 .findByProviderIdAndExternalSubject(identity.providerId(), identity.subject())
                 .map(UserPersistenceAdapter::toDomain);
+    }
+
+    @Override
+    public List<User> findAllWithRole(final RoleKey role) {
+        return this.repository.findDistinctByRolesRoleKeyOrderByIdAsc(role.value()).stream()
+                .map(UserPersistenceAdapter::toDomain)
+                .toList();
     }
 
     @Override

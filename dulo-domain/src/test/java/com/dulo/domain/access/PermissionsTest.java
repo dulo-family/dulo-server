@@ -53,6 +53,20 @@ class PermissionsTest {
     }
 
     @Test
+    void coversWhatItGrants() {
+        final Permissions viewPeople = new Permissions(Map.of(Feature.PEOPLE, Set.of(Access.VIEW)));
+        final Permissions editPeople =
+                new Permissions(Map.of(Feature.PEOPLE, Set.of(Access.VIEW, Access.EDIT)));
+
+        assertThat(editPeople.covers(viewPeople)).isTrue();
+        assertThat(viewPeople.covers(editPeople)).isFalse();
+        assertThat(viewPeople.covers(Permissions.none())).isTrue();
+        assertThat(Permissions.all().covers(editPeople)).isTrue();
+        assertThat(viewPeople.covers(new Permissions(Map.of(Feature.PLACES, Set.of(Access.VIEW)))))
+                .isFalse();
+    }
+
+    @Test
     void accessKeyIsLowercase() {
         assertThat(Access.DELETE.key()).isEqualTo("delete");
     }
