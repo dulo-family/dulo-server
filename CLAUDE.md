@@ -91,6 +91,9 @@ forced values through `FeatureOverridesPort`.
 
 - Document endpoints with the Swagger annotations (`@Tag`, `@Operation`, `@ApiResponse`).
 - The spec is served at `/api/v1/openapi.json`.
+- Errors outside the controllers (Spring Security rejections, invalid authorization requests,
+  unhandled exceptions) go to `/error`, where `ProblemErrorController` turns them into problem
+  details. There is no HTML error page.
 - Controllers get the caller as `java.security.Principal` and turn it into a `UserId` with
   `Callers.id`, so the REST adapter needs no Spring Security. Use cases check access through the
   core's `AccessPolicy`; `AccessDeniedException` becomes a 401/403 problem.

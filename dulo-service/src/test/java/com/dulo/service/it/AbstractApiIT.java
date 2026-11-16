@@ -353,6 +353,25 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void errorsOutsideTheApiAreProblems() throws Exception {
+        final HttpResponse<String> denied = this.getAsBrowser("/nothing-here");
+
+        assertThat(denied.statusCode()).isEqualTo(403);
+        assertThat(denied.headers().firstValue("Content-Type"))
+                .hasValue("application/problem+json");
+        final JsonNode problem = JSON.readTree(denied.body());
+        assertThat(problem.path("type").asString()).isEqualTo("urn:dulo:problem:forbidden");
+        assertThat(problem.path("instance").asString()).isEqualTo("/nothing-here");
+
+        final HttpResponse<String> invalid =
+                this.getAsBrowser("/oauth2/authorize?response_type=code&client_id=ghost");
+
+        assertThat(invalid.statusCode()).isEqualTo(400);
+        assertThat(JSON.readTree(invalid.body()).path("detail").asString()).contains("client_id");
+        assertThat(this.get("/error").statusCode()).isEqualTo(404);
+    }
+
+    @Test
     void healthIsUp() throws Exception {
         final HttpResponse<String> health = this.get("/actuator/health/readiness");
 
@@ -375,6 +394,15 @@ abstract class AbstractApiIT {
         return HTTP.send(
                 HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
                         .header("Authorization", "Bearer " + accessToken)
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
+    private HttpResponse<String> getAsBrowser(final String path)
+            throws IOException, InterruptedException {
+        return HTTP.send(
+                HttpRequest.newBuilder(URI.create("http://localhost:" + port + path))
+                        .header("Accept", "text/html")
                         .build(),
                 HttpResponse.BodyHandlers.ofString());
     }
