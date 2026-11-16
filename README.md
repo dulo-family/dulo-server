@@ -82,6 +82,16 @@ locked in the administration page; the others are managed by the administrator. 
 features: `people`, `families`, `events`, `places`, `tree-view`, `map-view`, `timeline`,
 `audit-log`.
 
+### Logs
+
+Everything goes to standard output: the application log, and one access log line per request
+(client address, request, status, size, referrer, user agent and the time taken in
+milliseconds). Set `SERVER_TOMCAT_ACCESSLOG_ENABLED=false` to turn the access log off.
+
+Errors are [RFC 9457](https://www.rfc-editor.org/rfc/rfc9457) problem details
+(`application/problem+json`), including errors outside the API such as an invalid sign-in request.
+A client error's `detail` says what was wrong; for a server error, the log has the details.
+
 ## Development
 
 Requirements: JDK 25 and Docker (integration tests use Testcontainers).

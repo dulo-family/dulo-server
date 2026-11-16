@@ -22,6 +22,9 @@ spring:
   mvc:
     problemdetails:
       enabled: true
+    # Logs a warning with the reason whenever a request fails with a handled exception, such as an
+    # unreadable body or a denied access check.
+    log-resolved-exception: true
   threads:
     virtual:
       enabled: true
@@ -31,6 +34,18 @@ spring:
 server:
   port: 8080
   shutdown: graceful
+  tomcat:
+    # One line per request on standard output, next to the application log. The last field is the
+    # time taken in milliseconds. Turn it off with SERVER_TOMCAT_ACCESSLOG_ENABLED=false.
+    accesslog:
+      enabled: true
+      directory: /dev
+      prefix: stdout
+      suffix: ""
+      file-date-format: ""
+      rotate: false
+      buffered: false
+      pattern: '[%h] %t "%r" %s %b "%{Referer}i" "%{User-Agent}i" %{ms}T'
 
 management:
   endpoints:
