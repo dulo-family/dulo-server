@@ -47,6 +47,11 @@ dulo:
   registration:
     mode: approval
 
+  # The one-time token that authorizes the initial setup. When it isn't set, the server generates
+  # one and logs it on every start until the setup is done.
+  # setup:
+  #   token: change-me
+
   # Forced feature states. Features left out are managed in the administration page.
   features:
     timeline: true

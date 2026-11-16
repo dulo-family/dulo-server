@@ -57,6 +57,15 @@ class TreeController {
                             mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
                             schema = @Schema(implementation = ProblemDetail.class)))
     @ApiResponse(
+            responseCode = "503",
+            description =
+                    "The initial setup isn't done yet. The problem type is"
+                            + " `urn:dulo:problem:setup-required`.",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(
             responseCode = "401",
             description =
                     "No valid access token. The problem type is `urn:dulo:problem:unauthorized`.",

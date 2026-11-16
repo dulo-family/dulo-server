@@ -34,6 +34,12 @@ On first start, and until the initial setup is done, the server logs its merged 
 Each value shows where it came from (environment variable, config file or default), and secrets
 are masked.
 
+Until the initial setup is done, the API answers 503, except for the setup itself. The server logs
+a one-time setup token (or uses `dulo.setup.token`). Sign in, then complete the setup with that
+token: it creates the tree and the roles, and you become the root user. The
+[Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page describes the
+steps.
+
 ## Configuration
 
 Settings come from three places, in increasing order of precedence:

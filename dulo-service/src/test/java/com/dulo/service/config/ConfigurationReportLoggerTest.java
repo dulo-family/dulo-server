@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
+import java.security.SecureRandom;
 import java.util.Map;
 
 class ConfigurationReportLoggerTest {
@@ -36,5 +37,17 @@ class ConfigurationReportLoggerTest {
                                 "dulo.clients.web.redirect-uris[0]", "http://web/callback"));
 
         assertThat(ConfigurationReportLogger.signInWarnings(properties)).isEmpty();
+    }
+
+    @Test
+    void logsOnlyAGeneratedSetupToken() {
+        final SetupToken generated = new SetupToken(null, new SecureRandom());
+
+        assertThat(ConfigurationReportLogger.setupMessage(generated)).endsWith(generated.token());
+        assertThat(
+                        ConfigurationReportLogger.setupMessage(
+                                new SetupToken("configured-secret", new SecureRandom())))
+                .contains("dulo.setup.token")
+                .doesNotContain("configured-secret");
     }
 }

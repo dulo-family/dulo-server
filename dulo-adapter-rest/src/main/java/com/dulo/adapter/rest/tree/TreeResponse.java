@@ -7,14 +7,15 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 
-record TreeResponse(
+/** A family tree and the state of each feature. */
+public record TreeResponse(
         String id,
         String name,
         @Nullable String description,
         long version,
         List<FeatureResponse> features) {
 
-    static TreeResponse from(final TreeView view) {
+    public static TreeResponse from(final TreeView view) {
         final var tree = view.tree();
         return new TreeResponse(
                 tree.id().toString(),
@@ -24,9 +25,10 @@ record TreeResponse(
                 view.features().stream().map(FeatureResponse::from).toList());
     }
 
-    record FeatureResponse(String key, boolean enabled, boolean locked) {
+    /** A feature, whether it is on, and whether the configuration forces its state. */
+    public record FeatureResponse(String key, boolean enabled, boolean locked) {
 
-        static FeatureResponse from(final FeatureState state) {
+        public static FeatureResponse from(final FeatureState state) {
             return new FeatureResponse(state.feature().key(), state.enabled(), state.locked());
         }
     }

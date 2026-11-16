@@ -69,6 +69,43 @@ provider is configured, or the authorization request names one with `idp=<provid
 - Google sends no group claims, so Google users depend on the default role and on roles assigned
   by hand.
 
+## Initial setup
+
+A new server has no tree, no roles and no administrator. Until the setup is done, every API call
+except the setup itself, `/api/v1/identity-providers`, `/api/v1/me` and the API description
+answers **503** with the problem type `urn:dulo:problem:setup-required`.
+
+The setup is protected by a **setup token**: the value of `dulo.setup.token`, or a random token
+the server generates and logs on every start while the setup is pending. Whoever completes the
+setup must be signed in and know the token, and becomes the **root** user, who may do everything,
+whatever their roles.
+
+<pre class="mermaid">
+sequenceDiagram
+    autonumber
+    actor A as Administrator (web client)
+    participant API as Dulo API
+    participant Log as Server log
+    API->>Log: Initial setup pending, setup token …
+    A->>API: GET /api/v1/setup/status
+    API-->>A: {"pending": true}
+    A->>API: Signs in (see the sign-in flow)
+    A->>API: GET /api/v1/setup/defaults, X-Dulo-Setup-Token: …
+    API-->>A: Built-in roles, features, providers and their role mappings
+    A->>API: GET /api/v1/setup/config, X-Dulo-Setup-Token: …
+    API-->>A: The merged configuration, secrets masked
+    A->>API: POST /api/v1/setup, Bearer …, X-Dulo-Setup-Token: … (tree, features, roles)
+    API->>API: Creates the tree and the roles, makes the caller root (one transaction)
+    API-->>A: 201, the tree
+</pre>
+
+- `GET /api/v1/setup/status` is public. The defaults and the configuration need the setup token.
+- `POST /api/v1/setup` needs an access token and the setup token. Its body has the tree's name,
+  description and enabled features, and optionally roles. Built-in roles that the body leaves out
+  get their default permissions. Every role an identity provider's `role-mappings` or
+  `default-role` names must exist, or the request is rejected with 400.
+- The setup works once. Afterwards the setup endpoints answer 409 `urn:dulo:problem:setup-completed`.
+
 ## Testing with Postman
 
 Postman supports the authorization code flow with PKCE.
@@ -111,6 +148,16 @@ Postman supports the authorization code flow with PKCE.
    tokens.
 
 5. Call the API, for example `GET http://localhost:8080/api/v1/me`.
+
+   On a new server, complete the setup first: `POST http://localhost:8080/api/v1/setup` with the
+   header `X-Dulo-Setup-Token: dev-setup-token` (set in the development configuration) and the
+   body
+
+   ```json
+   {"name": "The Smiths", "enabledFeatures": ["people", "families", "tree-view"]}
+   ```
+
+   You become the root user. Until then, other calls such as `GET /api/v1/tree` answer 503.
 
 6. Access tokens last 15 minutes. Postman refreshes them with the refresh token (turn on
    **Auto-refresh access token**, or click **Refresh** in the token manager). Refresh tokens are

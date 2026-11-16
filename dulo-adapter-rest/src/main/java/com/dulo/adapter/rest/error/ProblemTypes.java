@@ -16,5 +16,12 @@ public final class ProblemTypes {
     public static final URI ACCOUNT_PENDING = URI.create("urn:dulo:problem:account-pending");
     public static final URI ACCOUNT_DISABLED = URI.create("urn:dulo:problem:account-disabled");
 
+    public static final URI SETUP_REQUIRED = URI.create("urn:dulo:problem:setup-required");
+    public static final URI SETUP_COMPLETED = URI.create("urn:dulo:problem:setup-completed");
+    public static final URI INVALID_SETUP_TOKEN =
+            URI.create("urn:dulo:problem:invalid-setup-token");
+
+    public static final URI VALIDATION = URI.create("urn:dulo:problem:validation");
+
     private ProblemTypes() {}
 }
