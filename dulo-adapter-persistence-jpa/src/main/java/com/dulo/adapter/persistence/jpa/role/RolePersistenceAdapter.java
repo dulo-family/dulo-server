@@ -107,4 +107,17 @@ public class RolePersistenceAdapter implements RoleRepository {
         entity.setPermissions(grants(role.permissions()));
         return toDomain(this.repository.saveAndFlush(entity));
     }
+
+    @Override
+    public void delete(final Role role) {
+        final RoleJpaEntity entity =
+                this.repository
+                        .findById(role.key().value())
+                        .orElseThrow(() ->
+                                new ConcurrentModificationException(
+                                        "Role", role.key(), role.version(), -1));
+        checkVersion(role, entity.getVersion());
+        this.repository.delete(entity);
+        this.repository.flush();
+    }
 }

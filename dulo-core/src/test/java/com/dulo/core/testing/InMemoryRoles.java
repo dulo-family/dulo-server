@@ -34,9 +34,24 @@ public final class InMemoryRoles implements RoleRepository {
         return Optional.ofNullable(this.roles.get(key.value()));
     }
 
+    /** Stores the role with the next version. Doesn't check the version it had. */
     @Override
     public Role save(final Role role) {
-        this.roles.put(role.key().value(), role);
-        return role;
+        final Role stored =
+                this.roles.containsKey(role.key().value())
+                        ? new Role(
+                                role.key(),
+                                role.name(),
+                                role.builtIn(),
+                                role.permissions(),
+                                role.version() + 1)
+                        : role;
+        this.roles.put(role.key().value(), stored);
+        return stored;
+    }
+
+    @Override
+    public void delete(final Role role) {
+        this.roles.remove(role.key().value());
     }
 }

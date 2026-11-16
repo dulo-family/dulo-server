@@ -81,6 +81,26 @@ redirect URIs under `dulo.clients.web`. See the
 [Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page for how sign-in
 works and how to test the API with Postman.
 
+### Users and roles
+
+- **Who gets in:** users sign in through an identity provider, and Dulo creates their account on
+  the first sign-in. With `dulo.registration.mode: approval` (the default), new users wait for an
+  administrator, unless a role mapping matches their claims. With `auto`, they're active right
+  away.
+- **What they may do:** each role grants view, create, edit or delete access per feature. The
+  built-in roles are administrator, editor, contributor (no delete) and viewer. A user's roles
+  come from the provider's claims through `role-mappings` and `default-role`, plus roles an
+  administrator assigns.
+- **Root:** the user who completed the initial setup may do everything. Only root can change the
+  built-in roles.
+- **Administration:** administrators approve and disable users, assign roles, and manage roles and
+  the tree's settings through `/api/v1/admin/users`, `/api/v1/admin/roles` and
+  `PATCH /api/v1/tree`. Permissions are checked on every request, so a change applies at once.
+  Administrators other than root can only grant what they may do themselves, so a role that may
+  only approve users can't be used to become a full administrator. The
+  [Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page explains the
+  rules.
+
 ### Features
 
 Features can be forced on or off with `dulo.features.<feature>: true|false`. Forced features are

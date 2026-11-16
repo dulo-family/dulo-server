@@ -1,9 +1,13 @@
 package com.dulo.adapter.rest.error;
 
+import com.dulo.core.access.port.in.RoleExistsException;
+import com.dulo.core.access.port.in.RoleInUseException;
 import com.dulo.core.setup.port.in.InvalidSetupTokenException;
 import com.dulo.core.setup.port.in.SetupCompletedException;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.shared.ConcurrentModificationException;
+import com.dulo.domain.shared.NotFoundException;
+import com.dulo.domain.user.UserId;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
@@ -83,12 +87,42 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         return problem(HttpStatus.BAD_REQUEST, ProblemTypes.VALIDATION, "Invalid request", e);
     }
 
+    /** The If-Match version is outdated: someone changed the resource since it was read. */
     @ExceptionHandler
     ProblemDetail concurrentModification(final ConcurrentModificationException e) {
         return problem(
-                HttpStatus.CONFLICT,
+                HttpStatus.PRECONDITION_FAILED,
                 ProblemTypes.CONCURRENT_MODIFICATION,
                 "Concurrent modification",
                 e);
+    }
+
+    @ExceptionHandler
+    ProblemDetail preconditionRequired(final PreconditionRequiredException e) {
+        return problem(
+                HttpStatus.PRECONDITION_REQUIRED,
+                ProblemTypes.PRECONDITION_REQUIRED,
+                "If-Match required",
+                e);
+    }
+
+    @ExceptionHandler
+    ProblemDetail notFound(final NotFoundException e) {
+        return problem(HttpStatus.NOT_FOUND, ProblemTypes.NOT_FOUND, "Not found", e);
+    }
+
+    @ExceptionHandler
+    ProblemDetail roleExists(final RoleExistsException e) {
+        return problem(HttpStatus.CONFLICT, ProblemTypes.ROLE_EXISTS, "Role exists", e);
+    }
+
+    /** Says what uses the role, so an administrator can free it. */
+    @ExceptionHandler
+    ProblemDetail roleInUse(final RoleInUseException e) {
+        final ProblemDetail problem =
+                problem(HttpStatus.CONFLICT, ProblemTypes.ROLE_IN_USE, "Role in use", e);
+        problem.setProperty("users", e.users().stream().map(UserId::toString).toList());
+        problem.setProperty("identityProviders", e.identityProviders());
+        return problem;
     }
 }

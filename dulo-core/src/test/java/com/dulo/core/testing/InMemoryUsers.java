@@ -1,12 +1,14 @@
 package com.dulo.core.testing;
 
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.domain.access.RoleKey;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.user.ExternalIdentity;
 import com.dulo.domain.user.User;
 import com.dulo.domain.user.UserId;
 
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -14,6 +16,11 @@ import java.util.Optional;
 public final class InMemoryUsers implements UserRepository {
 
     private final Map<UserId, User> users = new LinkedHashMap<>();
+
+    @Override
+    public List<User> findAll() {
+        return List.copyOf(this.users.values());
+    }
 
     @Override
     public Optional<User> findById(final UserId id) {
@@ -25,6 +32,11 @@ public final class InMemoryUsers implements UserRepository {
         return this.users.values().stream()
                 .filter(u -> u.externalIdentity().equals(identity))
                 .findFirst();
+    }
+
+    @Override
+    public List<User> findAllWithRole(final RoleKey role) {
+        return this.users.values().stream().filter(u -> u.roles().contains(role)).toList();
     }
 
     @Override
