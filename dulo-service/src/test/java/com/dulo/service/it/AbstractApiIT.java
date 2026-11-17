@@ -297,6 +297,22 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void publicEndpointsIgnoreInvalidTokens() throws Exception {
+        // Clients may still hold an expired token when they show the sign-in page.
+        for (final String path :
+                List.of(
+                        "/api/v1/identity-providers",
+                        "/api/v1/openapi.json",
+                        "/api/v1/setup/status")) {
+            assertThat(this.get(path, "expired-or-invalid").statusCode()).as(path).isEqualTo(200);
+        }
+        final HttpResponse<String> protectedEndpoint =
+                this.get("/api/v1/tree", "expired-or-invalid");
+        assertThat(protectedEndpoint.statusCode()).isEqualTo(401);
+        assertThat(problemType(protectedEndpoint)).isEqualTo("urn:dulo:problem:unauthorized");
+    }
+
+    @Test
     void publishesTheStoredSigningKey() throws Exception {
         final SigningKey key =
                 signingKeys.currentOrCreate(() -> {

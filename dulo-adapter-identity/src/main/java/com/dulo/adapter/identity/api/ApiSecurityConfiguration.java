@@ -12,6 +12,9 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
+import org.springframework.security.web.util.matcher.OrRequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatcher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -26,16 +29,18 @@ import java.util.List;
 @Configuration(proxyBeanMethods = false)
 public class ApiSecurityConfiguration {
 
-    /** Endpoints that need no token. */
-    static final String[] PUBLIC_ENDPOINTS = {
-        "/api/v1/openapi.json", "/api/v1/identity-providers",
-    };
-
     /**
-     * Setup steps that need no access token: the status, and what the setup token protects.
-     * Completing the setup needs a signed-in user, who becomes root.
+     * Endpoints that need no token: the OpenAPI document, the identity providers, and the setup
+     * steps that need no signed-in user (the status, and what the setup token protects). Completing
+     * the setup needs a signed-in user, who becomes root. A token sent to these endpoints is
+     * ignored.
      */
-    static final String PUBLIC_SETUP_READS = "/api/v1/setup/**";
+    static final RequestMatcher PUBLIC_ENDPOINTS =
+            new OrRequestMatcher(
+                    PathPatternRequestMatcher.withDefaults().matcher("/api/v1/openapi.json"),
+                    PathPatternRequestMatcher.withDefaults().matcher("/api/v1/identity-providers"),
+                    PathPatternRequestMatcher.withDefaults()
+                            .matcher(HttpMethod.GET, "/api/v1/setup/**"));
 
     /** Headers browsers may send to the API and the token endpoint. */
     private static final List<String> ALLOWED_HEADERS =
@@ -81,12 +86,13 @@ public class ApiSecurityConfiguration {
                 .authorizeHttpRequests(requests ->
                         requests.requestMatchers(PUBLIC_ENDPOINTS)
                                 .permitAll()
-                                .requestMatchers(HttpMethod.GET, PUBLIC_SETUP_READS)
-                                .permitAll()
                                 .anyRequest()
                                 .authenticated())
                 .oauth2ResourceServer(server ->
-                        server.jwt(Customizer.withDefaults()).authenticationEntryPoint(entryPoint))
+                        server.jwt(Customizer.withDefaults())
+                                .bearerTokenResolver(
+                                        new PublicEndpointsBearerTokenResolver(PUBLIC_ENDPOINTS))
+                                .authenticationEntryPoint(entryPoint))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint))
                 .sessionManagement(
                         sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
