@@ -12,7 +12,7 @@ import java.time.Instant;
 import java.util.List;
 
 @Schema(name = "ChangeEvent", description = "One change to one record.")
-record ChangeEventResponse(
+public record ChangeEventResponse(
         String id,
         @Schema(description = "When the change happened.") Instant at,
         @Schema(description = "The id of the user who made the change.") String actor,
@@ -34,7 +34,7 @@ record ChangeEventResponse(
         @Schema(description = "For a deletion: the references to the record it removed.")
                 List<LinkResponse> removedLinks) {
 
-    static ChangeEventResponse from(final ChangeEvent event) {
+    public static ChangeEventResponse from(final ChangeEvent event) {
         return new ChangeEventResponse(
                 event.id().toString(),
                 event.at(),
@@ -49,7 +49,7 @@ record ChangeEventResponse(
     }
 
     @Schema(name = "FieldChange")
-    record FieldChangeResponse(
+    public record FieldChangeResponse(
             String field,
             @Schema(
                             description =
@@ -70,14 +70,14 @@ record ChangeEventResponse(
     }
 
     @Schema(name = "Link", description = "A reference from one record to another.")
-    record LinkResponse(
+    public record LinkResponse(
             @Schema(description = "The type of the record that holds the reference.")
                     String entityType,
             @Schema(description = "The id of the record that holds the reference.") String entityId,
             @Schema(description = "The field of that record that holds the reference.")
                     String field) {
 
-        static LinkResponse from(final Link link) {
+        public static LinkResponse from(final Link link) {
             return new LinkResponse(link.entityType().key(), link.entityId(), link.field());
         }
     }

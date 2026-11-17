@@ -913,6 +913,233 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void placesLifecycle() throws Exception {
+        this.completeSetupIfPending();
+        final String admin = this.signInAsAdmin("it-places-admin");
+        this.enableFeatures(admin, "people", "places", "audit-log");
+        final String token = UUID.randomUUID().toString().substring(0, 8);
+
+        // A county with a town in it.
+        final HttpResponse<String> county =
+                this.call(
+                        "POST",
+                        "/api/v1/places",
+                        admin,
+                        "{\"name\": \"Kreis Ä "
+                                + token
+                                + "\", \"type\": \"county\","
+                                + " \"coordinates\": {\"latitude\": 48.5, \"longitude\": 11.25}}");
+        assertThat(county.statusCode()).as(county.body()).isEqualTo(201);
+        final String countyId = JSON.readTree(county.body()).path("id").asString();
+        assertThat(county.headers().firstValue("Location")).hasValue("/api/v1/places/" + countyId);
+        final HttpResponse<String> town =
+                this.call(
+                        "POST",
+                        "/api/v1/places",
+                        admin,
+                        "{\"name\": \"Dorf 100% "
+                                + token
+                                + "\", \"type\": \"village\", \"enclosedBy\": \""
+                                + countyId
+                                + "\"}");
+        assertThat(town.statusCode()).as(town.body()).isEqualTo(201);
+        final String townId = JSON.readTree(town.body()).path("id").asString();
+        final JsonNode read = JSON.readTree(this.get("/api/v1/places/" + countyId, admin).body());
+        assertThat(read.path("name").asString()).isEqualTo("Kreis Ä " + token);
+        assertThat(read.path("coordinates").path("longitude").asDouble()).isEqualTo(11.25);
+
+        // Replacing needs the current version, and a place can't end up inside itself.
+        final String townPath = "/api/v1/places/" + townId;
+        final String renamed =
+                "{\"name\": \"Neudorf 100% "
+                        + token
+                        + "\", \"type\": \"village\", \"enclosedBy\": \""
+                        + countyId
+                        + "\"}";
+        assertThat(this.call("PUT", townPath, admin, renamed).statusCode()).isEqualTo(428);
+        final HttpResponse<String> replaced =
+                this.call("PUT", townPath, admin, renamed, "If-Match", "\"0\"");
+        assertThat(replaced.statusCode()).as(replaced.body()).isEqualTo(200);
+        assertThat(replaced.headers().firstValue("ETag")).hasValue("\"1\"");
+        assertThat(this.call("PUT", townPath, admin, renamed, "If-Match", "\"0\"").statusCode())
+                .isEqualTo(412);
+        final HttpResponse<String> loop =
+                this.call(
+                        "PUT",
+                        "/api/v1/places/" + countyId,
+                        admin,
+                        "{\"name\": \"Kreis\", \"type\": \"county\", \"enclosedBy\": \""
+                                + townId
+                                + "\"}",
+                        "If-Match",
+                        "\"0\"");
+        assertThat(loop.statusCode()).isEqualTo(400);
+        assertThat(problemType(loop)).isEqualTo("urn:dulo:problem:validation");
+
+        // Search, with like wildcards taken literally, and paging.
+        final JsonNode found =
+                JSON.readTree(this.get("/api/v1/places?q=" + token + "&limit=1", admin).body());
+        assertThat(found.path("items").findValuesAsString("id")).containsExactly(countyId);
+        final JsonNode rest =
+                JSON.readTree(
+                        this.get(
+                                        "/api/v1/places?q="
+                                                + token
+                                                + "&limit=1&after="
+                                                + found.path("next").asString(),
+                                        admin)
+                                .body());
+        assertThat(rest.path("items").findValuesAsString("id")).containsExactly(townId);
+        assertThat(rest.path("next").isNull()).isTrue();
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/places?q=0%25%20" + token, admin).body())
+                                .path("items")
+                                .findValuesAsString("id"))
+                .containsExactly(townId);
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/places?q=_" + token, admin).body())
+                                .path("items"))
+                .isEmpty();
+
+        // Deleting the county needs confirmation, since the town lies in it.
+        final String countyPath = "/api/v1/places/" + countyId;
+        final HttpResponse<String> linked =
+                this.call("DELETE", countyPath, admin, null, "If-Match", "\"0\"");
+        assertThat(linked.statusCode()).isEqualTo(409);
+        assertThat(problemType(linked)).isEqualTo("urn:dulo:problem:has-links");
+        final JsonNode link = JSON.readTree(linked.body()).path("links").get(0);
+        assertThat(link.path("entityType").asString()).isEqualTo("place");
+        assertThat(link.path("entityId").asString()).isEqualTo(townId);
+        assertThat(link.path("field").asString()).isEqualTo("enclosedBy");
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        countyPath + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(204);
+        assertThat(this.get(countyPath, admin).statusCode()).isEqualTo(404);
+        assertThat(JSON.readTree(this.get(townPath, admin).body()).path("enclosedBy").isNull())
+                .isTrue();
+        final JsonNode history = JSON.readTree(this.get(countyPath + "/history", admin).body());
+        assertThat(history.findValuesAsString("kind")).containsExactly("created", "deleted");
+        assertThat(history.get(1).path("removedLinks").get(0).path("entityId").asString())
+                .isEqualTo(townId);
+        assertThat(this.get("/api/v1/places/" + UUID.randomUUID() + "/history", admin).statusCode())
+                .isEqualTo(404);
+        assertThat(this.get("/api/v1/places/not-a-uuid", admin).statusCode()).isEqualTo(400);
+
+        // A disabled feature is denied to everyone, administrators included.
+        this.enableFeatures(admin, "people", "audit-log");
+        final HttpResponse<String> disabled = this.get("/api/v1/places", admin);
+        assertThat(disabled.statusCode()).isEqualTo(403);
+        assertThat(problemType(disabled)).isEqualTo("urn:dulo:problem:feature-disabled");
+    }
+
+    @Test
+    void peopleLifecycle() throws Exception {
+        this.completeSetupIfPending();
+        final String admin = this.signInAsAdmin("it-people-admin");
+        this.enableFeatures(admin, "people", "audit-log");
+        final String token = UUID.randomUUID().toString().substring(0, 8);
+        final String anna =
+                "{\"names\": [{\"type\": \"married\", \"given\": \"Anna\", \"surname\": \"Zett"
+                        + token
+                        + "\"}, {\"type\": \"birth\", \"given\": \"Anna\", \"surname\": \"Müller"
+                        + token
+                        + "\", \"nickname\": \"Annie\"}], \"sex\": \"female\", \"notes\": \"Farmer\"}";
+
+        final HttpResponse<String> created = this.call("POST", "/api/v1/people", admin, anna);
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        final JsonNode person = JSON.readTree(created.body());
+        final String path = "/api/v1/people/" + person.path("id").asString();
+        assertThat(person.path("names")).hasSize(2);
+        assertThat(person.path("names").get(1).path("nickname").asString()).isEqualTo("Annie");
+        assertThat(person.path("names").get(1).path("prefix").isNull()).isTrue();
+        final HttpResponse<String> hans =
+                this.call(
+                        "POST",
+                        "/api/v1/people",
+                        admin,
+                        "{\"names\": [{\"type\": \"birth\", \"given\": \"Hans\", \"surname\": \"Abel"
+                                + token
+                                + "\"}], \"sex\": \"male\"}");
+        assertThat(hans.statusCode()).as(hans.body()).isEqualTo(201);
+
+        // Sorted by the primary given name; the search looks in every name, ignoring case.
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/people?q=" + token, admin).body())
+                                .path("items")
+                                .findValuesAsString("given"))
+                .containsExactly("Anna", "Anna", "Hans");
+        assertThat(
+                        JSON.readTree(
+                                        this.get("/api/v1/people?q=M%C3%9CLLER" + token, admin)
+                                                .body())
+                                .path("items"))
+                .hasSize(1);
+
+        // Replacing drops what is left out.
+        final HttpResponse<String> replaced =
+                this.call(
+                        "PUT",
+                        path,
+                        admin,
+                        "{\"names\": [], \"sex\": \"unknown\"}",
+                        "If-Match",
+                        created.headers().firstValue("ETag").orElseThrow());
+        assertThat(replaced.statusCode()).as(replaced.body()).isEqualTo(200);
+        assertThat(JSON.readTree(replaced.body()).path("names")).isEmpty();
+        assertThat(JSON.readTree(replaced.body()).path("notes").isNull()).isTrue();
+        final HttpResponse<String> invalid =
+                this.call(
+                        "PUT",
+                        path,
+                        admin,
+                        "{\"names\": [{\"type\": \"birth\", \"nickname\": \"Bo\"}], \"sex\": \"unknown\"}",
+                        "If-Match",
+                        replaced.headers().firstValue("ETag").orElseThrow());
+        assertThat(invalid.statusCode()).isEqualTo(400);
+        assertThat(this.call("POST", "/api/v1/people", admin, "{\"names\": []}").statusCode())
+                .isEqualTo(400);
+
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        path,
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        replaced.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(204);
+        final JsonNode history = JSON.readTree(this.get(path + "/history", admin).body());
+        assertThat(history.findValuesAsString("kind"))
+                .containsExactly("created", "changed", "deleted");
+        assertThat(
+                        history.get(0)
+                                .path("changes")
+                                .get(0)
+                                .path("after")
+                                .get(1)
+                                .path("surname")
+                                .asString())
+                .isEqualTo("Müller" + token);
+        assertThat(
+                        JSON.readTree(
+                                        this.get(
+                                                        "/api/v1/audit?entityType=person&entityId="
+                                                                + person.path("id").asString(),
+                                                        admin)
+                                                .body())
+                                .path("items"))
+                .hasSize(3);
+    }
+
+    @Test
     void changeEventsRoundTrip() {
         final String placeId = UUID.randomUUID().toString();
         final UserId actor = UserId.newId();
@@ -1057,6 +1284,26 @@ abstract class AbstractApiIT {
 
         assertThat(health.statusCode()).isEqualTo(200);
         assertThat(JSON.readTree(health.body()).path("status").asString()).isEqualTo("UP");
+    }
+
+    /** Signs in a user whom the identity provider puts in the administrators' group. */
+    private String signInAsAdmin(final String username) throws Exception {
+        return this.client().signIn(username, "{\"groups\": [\"family-admins\"]}").accessToken();
+    }
+
+    /** Switches exactly these features on, as an administrator. */
+    private void enableFeatures(final String admin, final String... features) throws Exception {
+        final String etag =
+                this.get("/api/v1/tree", admin).headers().firstValue("ETag").orElseThrow();
+        final HttpResponse<String> changed =
+                this.call(
+                        "PATCH",
+                        "/api/v1/tree",
+                        admin,
+                        JSON.writeValueAsString(Map.of("enabledFeatures", List.of(features))),
+                        "If-Match",
+                        etag);
+        assertThat(changed.statusCode()).as(changed.body()).isEqualTo(200);
     }
 
     private OAuthTestClient client() {

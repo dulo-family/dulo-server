@@ -17,6 +17,9 @@ spring:
       # Instants are stored as UTC in plain timestamp columns, which every supported database has.
       hibernate.jdbc.time_zone: UTC
       hibernate.type.preferred_instant_jdbc_type: TIMESTAMP
+      # Loads the collections of a page of records, such as people's names, in a few queries
+      # instead of one per record.
+      hibernate.default_batch_fetch_size: 100
   liquibase:
     change-log: classpath:db/changelog/db.changelog-master.yaml
   mvc:

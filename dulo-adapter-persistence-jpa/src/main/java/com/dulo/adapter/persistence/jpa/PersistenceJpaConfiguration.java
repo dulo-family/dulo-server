@@ -2,6 +2,8 @@ package com.dulo.adapter.persistence.jpa;
 
 import com.dulo.adapter.persistence.jpa.audit.AuditPersistenceConfiguration;
 import com.dulo.adapter.persistence.jpa.identity.SigningKeyPersistenceConfiguration;
+import com.dulo.adapter.persistence.jpa.person.PersonPersistenceConfiguration;
+import com.dulo.adapter.persistence.jpa.place.PlacePersistenceConfiguration;
 import com.dulo.adapter.persistence.jpa.role.RolePersistenceConfiguration;
 import com.dulo.adapter.persistence.jpa.tree.TreePersistenceConfiguration;
 import com.dulo.adapter.persistence.jpa.user.UserPersistenceConfiguration;
@@ -20,6 +22,8 @@ import org.springframework.transaction.PlatformTransactionManager;
 @EnableJpaRepositories(basePackageClasses = PersistenceJpaConfiguration.class)
 @Import({
     AuditPersistenceConfiguration.class,
+    PersonPersistenceConfiguration.class,
+    PlacePersistenceConfiguration.class,
     RolePersistenceConfiguration.class,
     SigningKeyPersistenceConfiguration.class,
     TreePersistenceConfiguration.class,

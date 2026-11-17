@@ -14,6 +14,10 @@ import com.dulo.core.identity.port.out.SigningKeyRepository;
 import com.dulo.core.identity.service.IdentityProviderService;
 import com.dulo.core.identity.service.SignInService;
 import com.dulo.core.identity.service.SigningKeyService;
+import com.dulo.core.person.port.out.PersonRepository;
+import com.dulo.core.person.service.PersonService;
+import com.dulo.core.place.port.out.PlaceRepository;
+import com.dulo.core.place.service.PlaceService;
 import com.dulo.core.setup.port.out.ConfigurationReportPort;
 import com.dulo.core.setup.port.out.SetupTokenPort;
 import com.dulo.core.setup.service.SetupService;
@@ -69,6 +73,26 @@ public class CoreServicesConfiguration {
     @Bean
     IdentityProviderService identityProviderService(final IdentityProvidersPort providers) {
         return new IdentityProviderService(providers);
+    }
+
+    @Bean
+    PersonService personService(
+            final PersonRepository people,
+            final ChangeEventRepository events,
+            final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
+            final UnitOfWork unitOfWork) {
+        return new PersonService(people, events, accessPolicy, recorder, unitOfWork);
+    }
+
+    @Bean
+    PlaceService placeService(
+            final PlaceRepository places,
+            final ChangeEventRepository events,
+            final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
+            final UnitOfWork unitOfWork) {
+        return new PlaceService(places, events, accessPolicy, recorder, unitOfWork);
     }
 
     @Bean
