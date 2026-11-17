@@ -27,6 +27,7 @@ public final class ProblemTypes {
             URI.create("urn:dulo:problem:precondition-required");
     public static final URI ROLE_EXISTS = URI.create("urn:dulo:problem:role-exists");
     public static final URI ROLE_IN_USE = URI.create("urn:dulo:problem:role-in-use");
+    public static final URI HAS_LINKS = URI.create("urn:dulo:problem:has-links");
 
     private ProblemTypes() {}
 }

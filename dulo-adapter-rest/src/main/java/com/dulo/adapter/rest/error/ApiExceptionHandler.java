@@ -1,9 +1,11 @@
 package com.dulo.adapter.rest.error;
 
+import com.dulo.adapter.rest.audit.ChangeEventResponse;
 import com.dulo.core.access.port.in.RoleExistsException;
 import com.dulo.core.access.port.in.RoleInUseException;
 import com.dulo.core.setup.port.in.InvalidSetupTokenException;
 import com.dulo.core.setup.port.in.SetupCompletedException;
+import com.dulo.core.shared.port.in.HasLinksException;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.NotFoundException;
@@ -123,6 +125,16 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
                 problem(HttpStatus.CONFLICT, ProblemTypes.ROLE_IN_USE, "Role in use", e);
         problem.setProperty("users", e.users().stream().map(UserId::toString).toList());
         problem.setProperty("identityProviders", e.identityProviders());
+        return problem;
+    }
+
+    /** Lists the references, so the client can warn about what a confirmed deletion removes. */
+    @ExceptionHandler
+    ProblemDetail hasLinks(final HasLinksException e) {
+        final ProblemDetail problem =
+                problem(HttpStatus.CONFLICT, ProblemTypes.HAS_LINKS, "Still linked", e);
+        problem.setProperty(
+                "links", e.links().stream().map(ChangeEventResponse.LinkResponse::from).toList());
         return problem;
     }
 }

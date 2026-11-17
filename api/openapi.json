@@ -16,11 +16,17 @@
     }
   } ],
   "tags" : [ {
+    "description" : "Places where things happened, nested in larger places. Needs the places feature: view to read, create, edit and delete to change.",
+    "name" : "Places"
+  }, {
     "description" : "The signed-in user",
     "name" : "Me"
   }, {
     "description" : "Administration of the roles and their permissions. Needs the administration feature with the matching access. Only the root user may change the built-in roles, and nobody may delete them.",
     "name" : "Roles"
+  }, {
+    "description" : "The people of the tree and their names. Needs the people feature: view to read, create, edit and delete to change.",
+    "name" : "People"
   }, {
     "description" : "The audit history: every change to every record, with the values before and after. Needs view access to the audit-log feature; changes to the tree settings, roles and users also need view access to administration.",
     "name" : "Audit"
@@ -751,6 +757,955 @@
         "tags" : [ "Me" ]
       }
     },
+    "/api/v1/people" : {
+      "get" : {
+        "description" : "Sorted by the primary name: given name, then surname; people without a name come first. In pages.",
+        "operationId" : "people",
+        "parameters" : [ {
+          "description" : "Only people with a name that contains this text, ignoring case. All names and all their parts count.",
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "The `next` cursor of the previous page; leave it out for the first page.",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Page size, 1 to 200.",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePerson"
+                }
+              }
+            },
+            "description" : "One page of people"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "List people",
+        "tags" : [ "People" ]
+      },
+      "post" : {
+        "operationId" : "createPerson",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Person"
+                }
+              }
+            },
+            "description" : "The new person",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the person",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              },
+              "Location" : {
+                "description" : "Path of the person",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Create a person",
+        "tags" : [ "People" ]
+      }
+    },
+    "/api/v1/people/{id}" : {
+      "delete" : {
+        "description" : "Records that refer to the person make the deletion fail with 409, which lists them. Send `confirmed=true` to delete them anyway, removing those references.",
+        "operationId" : "deletePerson",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Delete them even if other records refer to them.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such person. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Other records refer to the person and the deletion isn't confirmed. The problem type is `urn:dulo:problem:has-links`. Its `links` member lists the references a confirmed deletion removes."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Delete a person",
+        "tags" : [ "People" ]
+      },
+      "get" : {
+        "operationId" : "person",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Person"
+                }
+              }
+            },
+            "description" : "The person",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the person",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such person. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a person",
+        "tags" : [ "People" ]
+      },
+      "put" : {
+        "description" : "Replaces everything about the person, names included: values left out are removed.",
+        "operationId" : "replacePerson",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PersonRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Person"
+                }
+              }
+            },
+            "description" : "The changed person",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the person",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such person. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Replace a person",
+        "tags" : [ "People" ]
+      }
+    },
+    "/api/v1/people/{id}/history" : {
+      "get" : {
+        "description" : "Every change to the person, oldest first, also after they were deleted.",
+        "operationId" : "personHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ChangeEvent"
+                  }
+                }
+              }
+            },
+            "description" : "The changes"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person never existed. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a person's history",
+        "tags" : [ "People" ]
+      }
+    },
+    "/api/v1/places" : {
+      "get" : {
+        "description" : "Sorted by name, in pages.",
+        "operationId" : "places",
+        "parameters" : [ {
+          "description" : "Only places whose name contains this text, ignoring case.",
+          "in" : "query",
+          "name" : "q",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "The `next` cursor of the previous page; leave it out for the first page.",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Page size, 1 to 200.",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponsePlace"
+                }
+              }
+            },
+            "description" : "One page of places"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "List places",
+        "tags" : [ "Places" ]
+      },
+      "post" : {
+        "description" : "The enclosing place, if any, must exist.",
+        "operationId" : "createPlace",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlaceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Place"
+                }
+              }
+            },
+            "description" : "The new place",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the place",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              },
+              "Location" : {
+                "description" : "Path of the place",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Create a place",
+        "tags" : [ "Places" ]
+      }
+    },
+    "/api/v1/places/{id}" : {
+      "delete" : {
+        "description" : "Places that lie in it make the deletion fail with 409, which lists them. Send `confirmed=true` to delete it anyway: those places then lie nowhere.",
+        "operationId" : "deletePlace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Delete it even if other records refer to it.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such place. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Other records refer to the place and the deletion isn't confirmed. The problem type is `urn:dulo:problem:has-links`. Its `links` member lists the references a confirmed deletion removes."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Delete a place",
+        "tags" : [ "Places" ]
+      },
+      "get" : {
+        "operationId" : "place",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Place"
+                }
+              }
+            },
+            "description" : "The place",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the place",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such place. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a place",
+        "tags" : [ "Places" ]
+      },
+      "put" : {
+        "description" : "Replaces everything about the place: values left out are removed. The enclosing place must exist, and a place can't lie in itself, not even through other places.",
+        "operationId" : "replacePlace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/PlaceRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Place"
+                }
+              }
+            },
+            "description" : "The changed place",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the place",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such place. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Replace a place",
+        "tags" : [ "Places" ]
+      }
+    },
+    "/api/v1/places/{id}/history" : {
+      "get" : {
+        "description" : "Every change to the place, oldest first, also after it was deleted.",
+        "operationId" : "placeHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ChangeEvent"
+                  }
+                }
+              }
+            },
+            "description" : "The changes"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place never existed. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a place's history",
+        "tags" : [ "Places" ]
+      }
+    },
     "/api/v1/setup" : {
       "post" : {
         "description" : "Creates the tree and the roles, and makes the signed-in caller the root user, who may do everything. Works once.",
@@ -1219,6 +2174,24 @@
         },
         "required" : [ "actor", "at", "changes", "correlationId", "entityId", "entityType", "entityVersion", "id", "kind", "removedLinks" ]
       },
+      "Coordinates" : {
+        "type" : "object",
+        "properties" : {
+          "latitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "-90 (south) to 90 (north).",
+            "example" : 42.1354
+          },
+          "longitude" : {
+            "type" : "number",
+            "format" : "double",
+            "description" : "-180 (west) to 180 (east).",
+            "example" : 24.7453
+          }
+        },
+        "required" : [ "latitude", "longitude" ]
+      },
       "FeatureAccess" : {
         "type" : "object",
         "properties" : {
@@ -1362,6 +2335,172 @@
           }
         },
         "required" : [ "items" ]
+      },
+      "PageResponsePerson" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Person"
+            }
+          },
+          "next" : {
+            "type" : [ "string", "null" ],
+            "description" : "Opaque cursor of the next page: pass it as `after`. Null on the last page."
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "PageResponsePlace" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Place"
+            }
+          },
+          "next" : {
+            "type" : [ "string", "null" ],
+            "description" : "Opaque cursor of the next page: pass it as `after`. Null on the last page."
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "Person" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string"
+          },
+          "names" : {
+            "type" : "array",
+            "description" : "The person's names, the primary one first.",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonName"
+            }
+          },
+          "notes" : {
+            "type" : [ "string", "null" ]
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "female", "male", "other", "unknown" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Also the ETag; send it in If-Match to change the person."
+          }
+        },
+        "required" : [ "id", "names", "sex", "version" ]
+      },
+      "PersonName" : {
+        "type" : "object",
+        "properties" : {
+          "given" : {
+            "type" : [ "string", "null" ],
+            "example" : "Anna Maria"
+          },
+          "nickname" : {
+            "type" : [ "string", "null" ]
+          },
+          "prefix" : {
+            "type" : [ "string", "null" ],
+            "description" : "A title or prefix, such as Dr."
+          },
+          "suffix" : {
+            "type" : [ "string", "null" ],
+            "description" : "A suffix, such as Jr."
+          },
+          "surname" : {
+            "type" : [ "string", "null" ],
+            "example" : "Müller"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "also-known-as", "birth", "married", "other", "religious" ]
+          }
+        },
+        "required" : [ "type" ]
+      },
+      "PersonRequest" : {
+        "type" : "object",
+        "properties" : {
+          "names" : {
+            "type" : "array",
+            "description" : "The person's names, the primary one first; may be empty.",
+            "items" : {
+              "$ref" : "#/components/schemas/PersonName"
+            }
+          },
+          "notes" : {
+            "type" : [ "string", "null" ]
+          },
+          "sex" : {
+            "type" : "string",
+            "enum" : [ "female", "male", "other", "unknown" ]
+          }
+        },
+        "required" : [ "names", "sex" ]
+      },
+      "Place" : {
+        "type" : "object",
+        "properties" : {
+          "coordinates" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Coordinates"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "enclosedBy" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the larger place it lies in."
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "address", "building", "cemetery", "city", "country", "county", "other", "parish", "region", "town", "village" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Also the ETag; send it in If-Match to change the place."
+          }
+        },
+        "required" : [ "id", "name", "type", "version" ]
+      },
+      "PlaceRequest" : {
+        "type" : "object",
+        "properties" : {
+          "coordinates" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/Coordinates"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "enclosedBy" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the larger place it lies in."
+          },
+          "name" : {
+            "type" : "string",
+            "example" : "Plovdiv"
+          },
+          "type" : {
+            "type" : "string",
+            "enum" : [ "address", "building", "cemetery", "city", "country", "county", "other", "parish", "region", "town", "village" ]
+          }
+        },
+        "required" : [ "name", "type" ]
       },
       "ProblemDetail" : {
         "type" : "object",

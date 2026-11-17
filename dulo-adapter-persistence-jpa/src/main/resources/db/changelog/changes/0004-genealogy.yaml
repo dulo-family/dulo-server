@@ -1,0 +1,147 @@
+databaseChangeLog:
+  - changeSet:
+      id: 0004-genealogy
+      author: dulo
+      changes:
+        - createTable:
+            tableName: place
+            columns:
+              - column:
+                  name: id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_place
+                    nullable: false
+              - column:
+                  name: name
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              # The name in lower case: what places are sorted and searched by.
+              - column:
+                  name: sort_name
+                  type: varchar(200)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: latitude
+                  type: double
+              - column:
+                  name: longitude
+                  type: double
+              # No cascade: the core unlinks the places inside a place before deleting it.
+              - column:
+                  name: enclosed_by
+                  type: varchar(36)
+                  constraints:
+                    foreignKeyName: fk_place_enclosed_by
+                    references: place(id)
+              - column:
+                  name: version
+                  type: bigint
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: place
+            indexName: ix_place_sort_name
+            columns:
+              - column:
+                  name: sort_name
+              - column:
+                  name: id
+        - createIndex:
+            tableName: place
+            indexName: ix_place_enclosed_by
+            columns:
+              - column:
+                  name: enclosed_by
+        - createTable:
+            tableName: person
+            columns:
+              - column:
+                  name: id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_person
+                    nullable: false
+              - column:
+                  name: sex
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: notes
+                  type: clob
+              # The primary name as "given, surname" in lower case: what people are sorted by.
+              - column:
+                  name: sort_name
+                  type: varchar(210)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: bigint
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: person
+            indexName: ix_person_sort_name
+            columns:
+              - column:
+                  name: sort_name
+              - column:
+                  name: id
+        - createTable:
+            tableName: person_name
+            columns:
+              - column:
+                  name: person_id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_person_name
+                    nullable: false
+                    foreignKeyName: fk_person_name_person
+                    references: person(id)
+                    deleteCascade: true
+              # The order of the names; the primary name is 0.
+              - column:
+                  name: position
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_person_name
+                    nullable: false
+              - column:
+                  name: type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: given
+                  type: varchar(100)
+              - column:
+                  name: surname
+                  type: varchar(100)
+              - column:
+                  name: prefix
+                  type: varchar(100)
+              - column:
+                  name: suffix
+                  type: varchar(100)
+              - column:
+                  name: nickname
+                  type: varchar(100)
+              # All parts in lower case, lowered in Java: SQLite's lower() knows only ASCII.
+              - column:
+                  name: search_text
+                  type: varchar(520)
+                  constraints:
+                    nullable: false

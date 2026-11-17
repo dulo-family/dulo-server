@@ -1,5 +1,8 @@
 package com.dulo.core.shared.service;
 
+import com.dulo.domain.shared.CursorPage;
+import com.dulo.domain.shared.PagePosition;
+
 import org.jspecify.annotations.Nullable;
 
 import java.net.URLDecoder;
@@ -8,6 +11,8 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -74,6 +79,41 @@ public final class Cursors {
         } catch (final NumberFormatException _) {
             throw invalid();
         }
+    }
+
+    /**
+     * The position a cursor from {@link #page} holds.
+     *
+     * @return the position, or null when there is no cursor
+     * @throws IllegalArgumentException if the cursor is not one of ours
+     */
+    public static @Nullable PagePosition decodePosition(final @Nullable String cursor) {
+        final List<String> values = decode(cursor, 2);
+        if (values == null) {
+            return null;
+        }
+        try {
+            return new PagePosition(values.get(0), UUID.fromString(values.get(1)));
+        } catch (final IllegalArgumentException _) {
+            throw invalid();
+        }
+    }
+
+    /**
+     * A page of items sorted by text and id.
+     *
+     * @param found the items, read with one more than the limit, which tells whether there is a
+     *     next page
+     * @param position where an item lies in the sort order
+     */
+    public static <T> CursorPage<T> page(
+            final List<T> found, final int limit, final Function<T, PagePosition> position) {
+        if (found.size() <= limit) {
+            return new CursorPage<>(found, null);
+        }
+        final List<T> page = found.subList(0, limit);
+        final PagePosition last = position.apply(page.getLast());
+        return new CursorPage<>(page, encode(last.sortKey(), last.id().toString()));
     }
 
     private static IllegalArgumentException invalid() {

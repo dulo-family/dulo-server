@@ -101,6 +101,15 @@ works and how to test the API with Postman.
   [Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page explains the
   rules.
 
+### Family tree records
+
+People and places are managed through `/api/v1/people` and `/api/v1/places`, behind the `people`
+and `places` features; families and events follow. A change replaces the whole record (`PUT` with
+the version from the `ETag` in `If-Match`). Deleting a record that others still refer to, such as
+a county with villages in it, fails with a `has-links` problem listing those references; repeat
+it with `?confirmed=true` to remove them too. Lists are read in pages (`?limit=&after=`) and can
+be searched (`?q=`).
+
 ### Audit history
 
 Every change is recorded with who made it, when, and the values before and after: changes to the
