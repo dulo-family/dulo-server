@@ -129,6 +129,7 @@ jobs:
 
       - name: Print release info
         env:
+          REPO_URL: ${{ github.server_url }}/${{ github.repository }}
           TAG: ${{ steps.prepare.outputs.tag }}
           VERSION: ${{ steps.prepare.outputs.version }}
           VERSION_TYPE: ${{ steps.version_type.outputs.version_type }}
@@ -140,7 +141,7 @@ jobs:
             echo "## Release $TAG"
             echo ""
             echo "- **Type**: $VERSION_TYPE"
-            echo "- **JAR**: \`$jar\` ($size)"
+            echo "- **JAR**: [\`$jar\`]($REPO_URL/releases/download/$TAG/$jar) ($size)"
           } >> "$GITHUB_STEP_SUMMARY"
 
   docs:
