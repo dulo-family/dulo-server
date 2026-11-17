@@ -9,6 +9,7 @@ import com.dulo.core.access.port.in.RoleExistsException;
 import com.dulo.core.access.port.in.RoleInUseException;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryChangeEvents;
 import com.dulo.core.testing.InMemoryRoles;
 import com.dulo.core.testing.InMemoryTrees;
 import com.dulo.core.testing.InMemoryUsers;
@@ -19,6 +20,9 @@ import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.access.Permissions;
 import com.dulo.domain.access.Role;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.audit.FieldChange;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.identity.IdentityProvider;
@@ -46,6 +50,7 @@ class RoleAdministrationServiceTest {
 
     private final InMemoryUsers users = new InMemoryUsers();
     private final InMemoryRoles roles = new InMemoryRoles(DefaultRoles.all());
+    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final RoleAdministrationService service =
             new RoleAdministrationService(
                     this.roles,
@@ -74,6 +79,7 @@ class RoleAdministrationServiceTest {
                             this.roles,
                             new InMemoryTrees(null),
                             FeatureOverrides::none),
+                    this.events.recorder(),
                     new DirectUnitOfWork());
     private final UserId admin =
             this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.ADMIN)).id();
@@ -104,6 +110,23 @@ class RoleAdministrationServiceTest {
         this.service.deleteRole(this.admin, READERS, widened.version());
         assertThatThrownBy(() -> this.service.role(this.admin, READERS))
                 .isInstanceOf(NotFoundException.class);
+        assertThat(this.events.kinds(EntityType.ROLE))
+                .containsExactly(
+                        ChangeKind.CREATED,
+                        ChangeKind.CHANGED,
+                        ChangeKind.CHANGED,
+                        ChangeKind.DELETED);
+        assertThat(this.events.all())
+                .allSatisfy(event -> {
+                    assertThat(event.actor()).isEqualTo(this.admin);
+                    assertThat(event.entityId()).isEqualTo("readers");
+                });
+        assertThat(this.events.all().get(1).changes())
+                .containsExactly(new FieldChange("name", "Readers", "Lurkers"));
+        assertThat(this.events.all().get(1).entityVersion()).isEqualTo(renamed.version());
+        assertThat(this.events.all().get(3).changes())
+                .extracting(FieldChange::field)
+                .containsExactly("name", "builtIn", "permissions");
     }
 
     @Test

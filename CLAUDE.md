@@ -105,8 +105,18 @@ forced values through `FeatureOverridesPort`.
   `/api/v1/admin/**`; CONTRIBUTING.md has the checklist for new endpoints.
 - `RequiredRecordComponentsConverter` marks every response record component as required unless
   it's `@Nullable`.
+- Lists that can grow are paged with a cursor: `?limit=&after=` → `{items, next}`
+  (`CursorPage`, `Cursors`, `PageResponse`).
 - The spec's version is the API version (`OpenApiConfiguration.API_VERSION`), not the server
   version.
+
+### Audit history
+
+Every write use case records its changes through `ChangeRecorder.changeSet(caller)`, in its unit of
+work, after storing the record. The events are complete (creations hold every field, changes the
+differences, deletions every field), so replaying them rebuilds a record: a hybrid of event
+sourcing where the tables stay the source of truth. Each record type has a `RecordFields` codec;
+its field names are a stored format. Design and rules: `src/site/markdown/audit.md`.
 
 ## Conventions
 

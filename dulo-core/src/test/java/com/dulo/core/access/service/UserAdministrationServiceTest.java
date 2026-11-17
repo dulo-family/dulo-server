@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dulo.core.access.port.in.ManageUsersUseCase.UserChange;
 import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryChangeEvents;
 import com.dulo.core.testing.InMemoryRoles;
 import com.dulo.core.testing.InMemoryTrees;
 import com.dulo.core.testing.InMemoryUsers;
@@ -15,6 +16,8 @@ import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.access.Permissions;
 import com.dulo.domain.access.Role;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.FieldChange;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.shared.ConcurrentModificationException;
@@ -25,6 +28,7 @@ import com.dulo.domain.user.UserStatus;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,6 +36,7 @@ class UserAdministrationServiceTest {
 
     private final InMemoryUsers users = new InMemoryUsers();
     private final InMemoryRoles roles = new InMemoryRoles(DefaultRoles.all());
+    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final UserAdministrationService service =
             new UserAdministrationService(
                     this.users,
@@ -41,6 +46,7 @@ class UserAdministrationServiceTest {
                             this.roles,
                             new InMemoryTrees(null),
                             FeatureOverrides::none),
+                    this.events.recorder(),
                     new DirectUnitOfWork());
     private final UserId admin =
             this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.ADMIN)).id();
@@ -77,6 +83,17 @@ class UserAdministrationServiceTest {
                         this.admin, pending.id(), approved.version(), new UserChange(null, null));
         assertThat(unchanged.status()).isEqualTo(UserStatus.ACTIVE);
         assertThat(unchanged.manualRoles()).containsExactly(DefaultRoles.EDITOR);
+        // A change that changes nothing leaves no event.
+        assertThat(this.events.all())
+                .singleElement()
+                .satisfies(event -> {
+                    assertThat(event.kind()).isEqualTo(ChangeKind.CHANGED);
+                    assertThat(event.entityId()).isEqualTo(pending.id().toString());
+                    assertThat(event.changes())
+                            .containsExactly(
+                                    new FieldChange("status", "pending", "active"),
+                                    new FieldChange("manualRoles", List.of(), List.of("editor")));
+                });
     }
 
     @Test

@@ -1,0 +1,122 @@
+databaseChangeLog:
+  # SQLite allows AUTOINCREMENT only on INTEGER PRIMARY KEY, which is 64 bits there too.
+  - property:
+      name: sequence.type
+      value: integer
+      dbms: sqlite
+      global: false
+  - property:
+      name: sequence.type
+      value: bigint
+      dbms: "!sqlite"
+      global: false
+  - changeSet:
+      id: 0003-audit
+      author: dulo
+      changes:
+        # The audit history. Rows are only ever inserted: never updated, never deleted.
+        - createTable:
+            tableName: change_event
+            columns:
+              # Orders all events; UUIDv7 ids are not ordered within one millisecond.
+              - column:
+                  name: seq
+                  type: ${sequence.type}
+                  autoIncrement: true
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_change_event
+                    nullable: false
+              - column:
+                  name: event_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: occurred_at
+                  type: datetime(3)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: actor_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entity_type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              # Role keys are ids too, so not only UUIDs.
+              - column:
+                  name: entity_id
+                  type: varchar(50)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: entity_version
+                  type: bigint
+                  constraints:
+                    nullable: false
+              - column:
+                  name: kind
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: correlation_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+              # The version of the JSON format of changes and removed_links, for upcasting old rows.
+              - column:
+                  name: format_version
+                  type: int
+                  constraints:
+                    nullable: false
+              - column:
+                  name: changes
+                  type: clob
+                  constraints:
+                    nullable: false
+              - column:
+                  name: removed_links
+                  type: clob
+                  constraints:
+                    nullable: false
+        # Unique indexes, not constraints: SQLite cannot add constraints to existing tables.
+        - createIndex:
+            tableName: change_event
+            indexName: ux_change_event_event_id
+            unique: true
+            columns:
+              - column:
+                  name: event_id
+        - createIndex:
+            tableName: change_event
+            indexName: ix_change_event_entity
+            columns:
+              - column:
+                  name: entity_type
+              - column:
+                  name: entity_id
+              - column:
+                  name: seq
+        - createIndex:
+            tableName: change_event
+            indexName: ix_change_event_actor
+            columns:
+              - column:
+                  name: actor_id
+        - createIndex:
+            tableName: change_event
+            indexName: ix_change_event_occurred_at
+            columns:
+              - column:
+                  name: occurred_at
+        - createIndex:
+            tableName: change_event
+            indexName: ix_change_event_correlation
+            columns:
+              - column:
+                  name: correlation_id

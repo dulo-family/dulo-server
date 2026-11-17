@@ -3,6 +3,7 @@ package com.dulo.core.access.service;
 import com.dulo.core.access.port.in.ManageUsersUseCase;
 import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.core.audit.recording.ChangeRecorder;
 import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.domain.access.Access;
 import com.dulo.domain.access.AccessDeniedException;
@@ -29,16 +30,19 @@ public class UserAdministrationService implements ManageUsersUseCase {
     private final UserRepository users;
     private final RoleRepository roles;
     private final AccessPolicy accessPolicy;
+    private final ChangeRecorder recorder;
     private final UnitOfWork unitOfWork;
 
     public UserAdministrationService(
             final UserRepository users,
             final RoleRepository roles,
             final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
         this.users = users;
         this.roles = roles;
         this.accessPolicy = accessPolicy;
+        this.recorder = recorder;
         this.unitOfWork = unitOfWork;
     }
 
@@ -80,8 +84,13 @@ public class UserAdministrationService implements ManageUsersUseCase {
                 this.requireWithinOwnPermissions(actor, user, manualRoles);
             }
             final User withStatus = this.withStatus(caller, user, change.status());
-            return this.users.save(
-                    manualRoles == null ? withStatus : withStatus.withManualRoles(manualRoles));
+            final User changed =
+                    this.users.save(
+                            manualRoles == null
+                                    ? withStatus
+                                    : withStatus.withManualRoles(manualRoles));
+            this.recorder.changeSet(caller).changed(UserFields.INSTANCE, user, changed);
+            return changed;
         });
     }
 

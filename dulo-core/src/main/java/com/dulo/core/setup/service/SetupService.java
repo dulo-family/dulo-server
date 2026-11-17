@@ -2,6 +2,10 @@ package com.dulo.core.setup.service;
 
 import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.core.access.service.RoleFields;
+import com.dulo.core.access.service.UserFields;
+import com.dulo.core.audit.recording.ChangeRecorder;
+import com.dulo.core.audit.recording.ChangeSet;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.setup.port.in.CompleteSetupUseCase;
 import com.dulo.core.setup.port.in.GetSetupConfigurationUseCase;
@@ -17,6 +21,7 @@ import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.core.tree.port.in.TreeView;
 import com.dulo.core.tree.port.out.FeatureOverridesPort;
 import com.dulo.core.tree.port.out.TreeSettingsRepository;
+import com.dulo.core.tree.service.TreeFields;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.access.Role;
@@ -38,6 +43,7 @@ import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
@@ -64,6 +70,7 @@ public class SetupService
     private final FeatureOverridesPort featureOverrides;
     private final SetupTokenPort setupToken;
     private final ConfigurationReportPort configurationReport;
+    private final ChangeRecorder recorder;
     private final UnitOfWork unitOfWork;
 
     /** The setup cannot be undone, so once it is done the database is not asked again. */
@@ -77,6 +84,7 @@ public class SetupService
             final FeatureOverridesPort featureOverrides,
             final SetupTokenPort setupToken,
             final ConfigurationReportPort configurationReport,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
         this.users = users;
         this.roles = roles;
@@ -85,6 +93,7 @@ public class SetupService
         this.featureOverrides = featureOverrides;
         this.setupToken = setupToken;
         this.configurationReport = configurationReport;
+        this.recorder = recorder;
         this.unitOfWork = unitOfWork;
     }
 
@@ -108,6 +117,24 @@ public class SetupService
                             0));
         }
         return List.copyOf(roles.values());
+    }
+
+    /** A new tree, or the existing one if a tree was stored without a setup. */
+    private static TreeSettings tree(
+            final Optional<TreeSettings> existingTree, final SetupCommand command) {
+        return existingTree
+                .map(existing ->
+                        new TreeSettings(
+                                existing.id(),
+                                command.treeName(),
+                                command.treeDescription(),
+                                command.enabledFeatures(),
+                                existing.version()))
+                .orElseGet(() ->
+                        TreeSettings.create(
+                                command.treeName(),
+                                command.treeDescription(),
+                                command.enabledFeatures()));
     }
 
     @Override
@@ -174,19 +201,27 @@ public class SetupService
                                             new AccessDeniedException(
                                                     AccessDeniedException.Reason.UNKNOWN_USER,
                                                     "The user does not exist"));
-                    final TreeSettings stored = this.trees.save(this.tree(command));
-                    newRoles.forEach(role ->
-                            this.roles.save(
-                                    new Role(
-                                            role.key(),
-                                            role.name(),
-                                            role.builtIn(),
-                                            role.permissions(),
-                                            this.roles
-                                                    .find(role.key())
-                                                    .map(Role::version)
-                                                    .orElse(0L))));
-                    this.users.save(user.asRoot());
+                    final ChangeSet changes = this.recorder.changeSet(caller);
+                    final Optional<TreeSettings> existingTree = this.trees.find();
+                    final TreeSettings stored = this.trees.save(tree(existingTree, command));
+                    existingTree.ifPresentOrElse(
+                            before -> changes.changed(TreeFields.INSTANCE, before, stored),
+                            () -> changes.created(TreeFields.INSTANCE, stored));
+                    newRoles.forEach(role -> {
+                        final Optional<Role> existingRole = this.roles.find(role.key());
+                        final Role storedRole =
+                                this.roles.save(
+                                        new Role(
+                                                role.key(),
+                                                role.name(),
+                                                role.builtIn(),
+                                                role.permissions(),
+                                                existingRole.map(Role::version).orElse(0L)));
+                        existingRole.ifPresentOrElse(
+                                before -> changes.changed(RoleFields.INSTANCE, before, storedRole),
+                                () -> changes.created(RoleFields.INSTANCE, storedRole));
+                    });
+                    changes.changed(UserFields.INSTANCE, user, this.users.save(user.asRoot()));
                     return stored;
                 });
         this.done.set(true);
@@ -234,23 +269,5 @@ public class SetupService
                                         .formatted(provider.id(), key));
                     });
         }
-    }
-
-    /** A new tree, or the existing one if a tree was stored without a setup. */
-    private TreeSettings tree(final SetupCommand command) {
-        return this.trees
-                .find()
-                .map(existing ->
-                        new TreeSettings(
-                                existing.id(),
-                                command.treeName(),
-                                command.treeDescription(),
-                                command.enabledFeatures(),
-                                existing.version()))
-                .orElseGet(() ->
-                        TreeSettings.create(
-                                command.treeName(),
-                                command.treeDescription(),
-                                command.enabledFeatures()));
     }
 }

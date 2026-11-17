@@ -2,6 +2,7 @@ package com.dulo.core.setup.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.setup.port.in.InvalidSetupTokenException;
@@ -9,6 +10,7 @@ import com.dulo.core.setup.port.in.SetupCommand;
 import com.dulo.core.setup.port.in.SetupCompletedException;
 import com.dulo.core.setup.port.in.SetupDefaults;
 import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryChangeEvents;
 import com.dulo.core.testing.InMemoryRoles;
 import com.dulo.core.testing.InMemoryTrees;
 import com.dulo.core.testing.InMemoryUsers;
@@ -20,6 +22,9 @@ import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.access.Permissions;
 import com.dulo.domain.access.Role;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.feature.FeatureState;
@@ -51,6 +56,7 @@ class SetupServiceTest {
     private final InMemoryTrees trees = new InMemoryTrees(null);
     private RoleMapping mapping =
             new RoleMapping(Map.of("admins", Set.of(DefaultRoles.ADMIN)), null);
+    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final SetupService service =
             new SetupService(
                     this.users,
@@ -77,6 +83,7 @@ class SetupServiceTest {
                     () -> new FeatureOverrides(Map.of(Feature.MAP_VIEW, false)),
                     () -> TOKEN,
                     () -> "dulo:\n  print-config: false",
+                    this.events.recorder(),
                     new DirectUnitOfWork());
 
     private static SetupCommand command(final SetupCommand.SetupRole... roles) {
@@ -145,6 +152,13 @@ class SetupServiceTest {
                     assertThat(user.status()).isEqualTo(UserStatus.ACTIVE);
                 });
         assertThat(this.service.isSetupPending()).isFalse();
+        // One action: the same actor, time and correlation for every event.
+        assertThat(this.events.kinds(EntityType.TREE)).containsExactly(ChangeKind.CREATED);
+        assertThat(this.events.kinds(EntityType.ROLE)).hasSize(5).containsOnly(ChangeKind.CREATED);
+        assertThat(this.events.kinds(EntityType.USER)).containsExactly(ChangeKind.CHANGED);
+        assertThat(this.events.all())
+                .extracting(ChangeEvent::actor, ChangeEvent::correlationId)
+                .containsOnly(tuple(caller.id(), this.events.all().getFirst().correlationId()));
     }
 
     @Test
@@ -157,6 +171,7 @@ class SetupServiceTest {
 
         assertThat(view.tree().id()).isEqualTo(existing.id());
         assertThat(view.tree().name()).isEqualTo("The Smiths");
+        assertThat(this.events.kinds(EntityType.TREE)).containsExactly(ChangeKind.CHANGED);
     }
 
     @Test
