@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.dulo.core.access.service.AccessPolicy;
 import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryChangeEvents;
 import com.dulo.core.testing.InMemoryRoles;
 import com.dulo.core.testing.InMemoryTrees;
 import com.dulo.core.testing.InMemoryUsers;
@@ -13,6 +14,9 @@ import com.dulo.core.tree.port.in.TreeView;
 import com.dulo.core.tree.port.in.UpdateTreeUseCase;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.DefaultRoles;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.audit.FieldChange;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.feature.FeatureOverrides;
 import com.dulo.domain.feature.FeatureState;
@@ -24,6 +28,7 @@ import com.dulo.domain.user.UserStatus;
 
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
@@ -33,6 +38,7 @@ class TreeServiceTest {
     private final InMemoryTrees trees = new InMemoryTrees(null);
     private final FeatureOverrides overrides =
             new FeatureOverrides(Map.of(Feature.MAP_VIEW, false));
+    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final TreeService service =
             new TreeService(
                     this.trees,
@@ -42,6 +48,7 @@ class TreeServiceTest {
                             new InMemoryRoles(DefaultRoles.all()),
                             this.trees,
                             () -> this.overrides),
+                    this.events.recorder(),
                     new DirectUnitOfWork());
 
     @Test
@@ -99,6 +106,14 @@ class TreeServiceTest {
         assertThat(cleared.tree().name()).isEqualTo("Smith family");
         assertThat(cleared.tree().description()).isNull();
         assertThat(cleared.tree().enabledFeatures()).contains(Feature.TIMELINE);
+        assertThat(this.events.kinds(EntityType.TREE))
+                .containsExactly(ChangeKind.CHANGED, ChangeKind.CHANGED);
+        assertThat(this.events.all().getFirst().changes())
+                .containsExactly(
+                        new FieldChange("name", "The Smiths", "Smith family"),
+                        new FieldChange("enabledFeatures", List.of(), List.of("timeline")));
+        assertThat(this.events.all().getLast().changes())
+                .containsExactly(new FieldChange("description", "Since 1820", null));
     }
 
     @Test

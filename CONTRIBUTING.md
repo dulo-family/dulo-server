@@ -135,6 +135,13 @@ The build adds the Swagger UI files and `api/openapi.json` next to it.
   version a 412.
 - Errors are problem details with a `urn:dulo:problem:*` type, mapped in `ApiExceptionHandler`.
   Document each response with `@ApiResponse`, then regenerate the OpenAPI document (below).
+- Every write records its changes in the audit history: in the same unit of work, after storing
+  the record, call `recorder.changeSet(caller)` and report the stored record with `created`,
+  `changed` or `deleted`. A new record type needs a `RecordFields` codec. The
+  [Audit history](src/site/markdown/audit.md) page explains the design and its rules.
+- Lists that can grow return one page at a time: `?limit=&after=`, answered with `{items, next}`
+  (`CursorPage` in the core, `PageResponse` in the REST adapter). `next` is an opaque cursor,
+  null on the last page.
 - Add an integration test to `AbstractApiIT`, which runs on all four databases.
 
 ## Test coverage

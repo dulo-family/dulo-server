@@ -101,6 +101,14 @@ works and how to test the API with Postman.
   [Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page explains the
   rules.
 
+### Audit history
+
+Every change is recorded with who made it, when, and the values before and after: changes to the
+family tree, and administrative changes such as role edits, user approvals and the initial setup.
+Users with view access to the `audit-log` feature read it through `/api/v1/audit`; changes to
+the tree settings, roles and users are visible to administrators only. The
+[Audit history](https://rdlf0.github.io/dulo-server/audit.html) page explains how it works.
+
 ### Features
 
 Features can be forced on or off with `dulo.features.<feature>: true|false`. Forced features are

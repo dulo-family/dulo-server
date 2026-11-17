@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.within;
 
 import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.core.audit.port.out.ChangeEventRepository;
 import com.dulo.core.identity.port.in.ExternalSignIn;
 import com.dulo.core.identity.port.in.SignInUseCase;
 import com.dulo.core.identity.port.in.SigningKeyUseCase;
@@ -15,6 +16,13 @@ import com.dulo.domain.access.Access;
 import com.dulo.domain.access.Permissions;
 import com.dulo.domain.access.Role;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
+import com.dulo.domain.audit.ChangeEventQuery;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.audit.FieldChange;
+import com.dulo.domain.audit.Link;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.identity.SigningKey;
 import com.dulo.domain.shared.ConcurrentModificationException;
@@ -51,9 +59,11 @@ import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Base64;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Runs the full server against a real database: Liquibase migrations, the JPA adapter and the REST
@@ -102,6 +112,7 @@ abstract class AbstractApiIT {
     @Autowired SignInUseCase signIn;
     @Autowired SigningKeyUseCase signingKeys;
     @Autowired UnitOfWork unitOfWork;
+    @Autowired ChangeEventRepository changeEvents;
 
     /**
      * Points the server at a database container. Call it from each subclass's
@@ -150,6 +161,22 @@ abstract class AbstractApiIT {
             }
         }
         throw new AssertionError("Feature " + key + " missing in " + tree);
+    }
+
+    /** The same event with a new id, as a second event of the same record. */
+    private static ChangeEvent copyWithNewId(final ChangeEvent event) {
+        return new ChangeEvent(
+                ChangeEventId.newId(),
+                0,
+                event.at(),
+                event.actor(),
+                event.entityType(),
+                event.entityId(),
+                event.entityVersion(),
+                event.kind(),
+                event.correlationId(),
+                event.changes(),
+                event.removedLinks());
     }
 
     @Test
@@ -692,6 +719,225 @@ abstract class AbstractApiIT {
                 .isNotEqualTo(Optional.of(etag));
         assertThat(this.call("PATCH", "/api/v1/tree", admin, change, "If-Match", etag).statusCode())
                 .isEqualTo(412);
+    }
+
+    @Test
+    void theAuditLogShowsEveryChange() throws Exception {
+        this.completeSetupIfPending();
+        final String admin =
+                this.client()
+                        .signIn("it-audit-admin", "{\"groups\": [\"family-admins\"]}")
+                        .accessToken();
+        final String adminId =
+                JSON.readTree(this.get("/api/v1/me", admin).body()).path("id").asString();
+        final String treeETag =
+                this.get("/api/v1/tree", admin).headers().firstValue("ETag").orElseThrow();
+        final HttpResponse<String> enabled =
+                this.call(
+                        "PATCH",
+                        "/api/v1/tree",
+                        admin,
+                        "{\"description\": \"Audited "
+                                + UUID.randomUUID()
+                                + "\", \"enabledFeatures\": [\"people\", \"audit-log\"]}",
+                        "If-Match",
+                        treeETag);
+        assertThat(enabled.statusCode()).as(enabled.body()).isEqualTo(200);
+
+        // A role created, renamed and deleted: three events, newest first.
+        final HttpResponse<String> created =
+                this.call(
+                        "POST",
+                        "/api/v1/admin/roles",
+                        admin,
+                        "{\"key\": \"it-audited\", \"name\": \"Audited\", \"permissions\": []}");
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        final HttpResponse<String> renamed =
+                this.call(
+                        "PATCH",
+                        "/api/v1/admin/roles/it-audited",
+                        admin,
+                        "{\"name\": \"Audited again\"}",
+                        "If-Match",
+                        created.headers().firstValue("ETag").orElseThrow());
+        assertThat(renamed.statusCode()).as(renamed.body()).isEqualTo(200);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/admin/roles/it-audited",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        renamed.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(204);
+        final String rolePath = "/api/v1/audit?entityType=role&entityId=it-audited";
+        final HttpResponse<String> history = this.get(rolePath, admin);
+        assertThat(history.statusCode()).as(history.body()).isEqualTo(200);
+        final JsonNode events = JSON.readTree(history.body()).path("items");
+        assertThat(events.findValuesAsString("kind"))
+                .containsExactly("deleted", "changed", "created");
+        assertThat(events.findValuesAsString("actor")).containsOnly(adminId);
+        final JsonNode rename = events.get(1);
+        assertThat(rename.path("entityVersion").asLong()).isEqualTo(1);
+        assertThat(rename.path("changes")).hasSize(1);
+        assertThat(rename.path("changes").get(0).path("field").asString()).isEqualTo("name");
+        assertThat(rename.path("changes").get(0).path("before").asString()).isEqualTo("Audited");
+        assertThat(rename.path("changes").get(0).path("after").asString())
+                .isEqualTo("Audited again");
+        assertThat(events.get(2).path("changes").findValuesAsString("field"))
+                .containsExactly("name", "builtIn", "permissions");
+        assertThat(events.get(2).path("changes").get(1).path("after").asBoolean()).isFalse();
+
+        // In pages.
+        final JsonNode first = JSON.readTree(this.get(rolePath + "&limit=2", admin).body());
+        assertThat(first.path("items")).hasSize(2);
+        final HttpResponse<String> secondPage =
+                this.get(rolePath + "&limit=2&after=" + first.path("next").asString(), admin);
+        final JsonNode second = JSON.readTree(secondPage.body());
+        assertThat(second.path("items").findValuesAsString("kind")).containsExactly("created");
+        assertThat(second.path("next").isNull()).isTrue();
+
+        // The tree change, and the filters by actor and time.
+        final JsonNode treeChange =
+                JSON.readTree(this.get("/api/v1/audit?entityType=tree&limit=1", admin).body())
+                        .path("items")
+                        .get(0);
+        assertThat(treeChange.path("kind").asString()).isEqualTo("changed");
+        assertThat(treeChange.path("actor").asString()).isEqualTo(adminId);
+        final JsonNode byAdmin =
+                JSON.readTree(
+                        this.get(
+                                        "/api/v1/audit?actor="
+                                                + adminId
+                                                + "&from="
+                                                + treeChange.path("at").asString(),
+                                        admin)
+                                .body());
+        assertThat(byAdmin.path("items")).hasSize(4);
+        // Before that, the admin's first sign-in created their user.
+        final JsonNode beforeTreeChange =
+                JSON.readTree(
+                                this.get(
+                                                "/api/v1/audit?actor="
+                                                        + adminId
+                                                        + "&to="
+                                                        + treeChange.path("at").asString(),
+                                                admin)
+                                        .body())
+                        .path("items");
+        assertThat(beforeTreeChange).hasSize(1);
+        assertThat(beforeTreeChange.get(0).path("entityType").asString()).isEqualTo("user");
+        assertThat(beforeTreeChange.get(0).path("kind").asString()).isEqualTo("created");
+
+        // Invalid requests.
+        for (final String invalid :
+                List.of("?limit=0", "?entityType=ghosts", "?after=not-a-cursor", "?actor=x")) {
+            final HttpResponse<String> response = this.get("/api/v1/audit" + invalid, admin);
+            assertThat(response.statusCode()).as(invalid).isEqualTo(400);
+            assertThat(problemType(response)).isEqualTo("urn:dulo:problem:validation");
+        }
+    }
+
+    @Test
+    void onlyAdministratorsSeeAdministrativeChanges() throws Exception {
+        this.completeSetupIfPending();
+        final String admin =
+                this.client()
+                        .signIn("it-audit-root-admin", "{\"groups\": [\"family-admins\"]}")
+                        .accessToken();
+        final String editor = this.client().signIn("it-audit-editor", "{}").accessToken();
+        final String editorPath =
+                "/api/v1/admin/users/"
+                        + JSON.readTree(this.get("/api/v1/me", editor).body())
+                                .path("id")
+                                .asString();
+        final HttpResponse<String> approved =
+                this.call(
+                        "PATCH",
+                        editorPath,
+                        admin,
+                        "{\"status\": \"active\", \"manualRoles\": [\"editor\"]}",
+                        "If-Match",
+                        this.get(editorPath, admin).headers().firstValue("ETag").orElseThrow());
+        assertThat(approved.statusCode()).as(approved.body()).isEqualTo(200);
+        final String treeETag =
+                this.get("/api/v1/tree", admin).headers().firstValue("ETag").orElseThrow();
+        assertThat(
+                        this.call(
+                                        "PATCH",
+                                        "/api/v1/tree",
+                                        admin,
+                                        "{\"enabledFeatures\": [\"people\", \"audit-log\"]}",
+                                        "If-Match",
+                                        treeETag)
+                                .statusCode())
+                .isEqualTo(200);
+
+        // The approval is in the history of the user, for administrators only.
+        final JsonNode approval =
+                JSON.readTree(
+                                this.get(
+                                                "/api/v1/audit?entityType=user&limit=1&entityId="
+                                                        + editorPath.substring(
+                                                                editorPath.lastIndexOf('/') + 1),
+                                                admin)
+                                        .body())
+                        .path("items")
+                        .get(0);
+        assertThat(approval.path("changes").findValuesAsString("field"))
+                .containsExactly("status", "manualRoles");
+        final HttpResponse<String> all = this.get("/api/v1/audit", editor);
+        assertThat(all.statusCode()).as(all.body()).isEqualTo(200);
+        assertThat(JSON.readTree(all.body()).path("items").findValuesAsString("entityType"))
+                .doesNotContain("role", "tree", "user");
+        final HttpResponse<String> roles = this.get("/api/v1/audit?entityType=role", editor);
+        assertThat(roles.statusCode()).isEqualTo(403);
+        assertThat(problemType(roles)).isEqualTo("urn:dulo:problem:forbidden");
+    }
+
+    @Test
+    void changeEventsRoundTrip() {
+        final String placeId = UUID.randomUUID().toString();
+        final UserId actor = UserId.newId();
+        final Instant at = Instant.parse("2026-11-17T10:15:30.123Z");
+        final ChangeEvent event =
+                new ChangeEvent(
+                        ChangeEventId.newId(),
+                        0,
+                        at,
+                        actor,
+                        EntityType.PLACE,
+                        placeId,
+                        3,
+                        ChangeKind.DELETED,
+                        UUID.randomUUID(),
+                        List.of(
+                                new FieldChange("name", "Plovdiv – Пловдив", null),
+                                new FieldChange(
+                                        "coordinates",
+                                        Map.of("lat", 42.1354, "lon", 24.7453),
+                                        null),
+                                new FieldChange("tags", List.of("a", List.of(1L, true)), null)),
+                        List.of(new Link(EntityType.EVENT, UUID.randomUUID().toString(), "place")));
+
+        final ChangeEvent stored = unitOfWork.write(() -> changeEvents.append(event));
+        final ChangeEvent later = unitOfWork.write(() -> changeEvents.append(copyWithNewId(event)));
+
+        assertThat(stored.sequence()).isPositive();
+        assertThat(later.sequence()).isGreaterThan(stored.sequence());
+        assertThat(unitOfWork.read(() -> changeEvents.history(EntityType.PLACE, placeId)))
+                .containsExactly(stored, later);
+        final ChangeEventQuery query =
+                new ChangeEventQuery(
+                        Set.of(EntityType.PLACE), placeId, actor, at, at.plusMillis(1));
+        assertThat(unitOfWork.read(() -> changeEvents.find(query, null, 10)))
+                .containsExactly(later, stored);
+        assertThat(unitOfWork.read(() -> changeEvents.find(query, later.sequence(), 10)))
+                .containsExactly(stored);
+        assertThat(unitOfWork.read(() -> changeEvents.find(query, null, 1))).containsExactly(later);
+        assertThatThrownBy(() -> unitOfWork.write(() -> changeEvents.append(stored)))
+                .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test

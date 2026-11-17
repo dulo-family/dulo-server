@@ -52,3 +52,7 @@ dulo:
     token: dev-setup-token
 
   print-config: true
+
+  features:
+    timeline: true
+    audit-log: true

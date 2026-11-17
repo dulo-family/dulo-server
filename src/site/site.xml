@@ -16,6 +16,7 @@
     </script>]]></head>
     <menu name="Documentation" inherit="top">
       <item name="Authentication" href="authentication.html"/>
+      <item name="Audit history" href="audit.html"/>
       <item name="REST API (Swagger UI)" href="api/index.html"/>
       <item name="OpenAPI document" href="api/openapi.json"/>
       <item name="Javadoc" href="apidocs/index.html"/>

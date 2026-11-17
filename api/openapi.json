@@ -22,6 +22,9 @@
     "description" : "Administration of the roles and their permissions. Needs the administration feature with the matching access. Only the root user may change the built-in roles, and nobody may delete them.",
     "name" : "Roles"
   }, {
+    "description" : "The audit history: every change to every record, with the values before and after. Needs view access to the audit-log feature; changes to the tree settings, roles and users also need view access to administration.",
+    "name" : "Audit"
+  }, {
     "description" : "Administration of the users: approve, disable, assign roles. Needs the administration feature: view to read, edit to change.",
     "name" : "Users"
   }, {
@@ -587,6 +590,111 @@
         "tags" : [ "Users" ]
       }
     },
+    "/api/v1/audit" : {
+      "get" : {
+        "description" : "Newest first, in pages. Without administration access, changes to the tree settings, roles and users are left out.",
+        "operationId" : "changes",
+        "parameters" : [ {
+          "description" : "Only changes to records of this type.",
+          "in" : "query",
+          "name" : "entityType",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "event", "family", "person", "place", "role", "tree", "user" ]
+          }
+        }, {
+          "description" : "Only changes to the record with this id. Combine it with `entityType`: role keys are ids too.",
+          "in" : "query",
+          "name" : "entityId",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Only changes by the user with this id.",
+          "in" : "query",
+          "name" : "actor",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Only changes at or after this time (ISO 8601).",
+          "in" : "query",
+          "name" : "from",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          }
+        }, {
+          "description" : "Only changes before this time (ISO 8601).",
+          "in" : "query",
+          "name" : "to",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ],
+            "format" : "date-time"
+          }
+        }, {
+          "description" : "The `next` cursor of the previous page; leave it out for the first page.",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Page size, 1 to 200.",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseChangeEvent"
+                }
+              }
+            },
+            "description" : "One page of changes"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An unknown entity type, an invalid cursor, limit or time range. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller may not view the audit log, or filters by an administrative type without administration access. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "List changes",
+        "tags" : [ "Audit" ]
+      }
+    },
     "/api/v1/identity-providers" : {
       "get" : {
         "description" : "Public, for the sign-in page. Sorted by id. When an authorization request names one with the `idp` parameter, or only one is configured, the server skips the sign-in page and goes straight to it.",
@@ -1057,6 +1165,60 @@
         },
         "required" : [ "claimRoles", "id", "lastSignIn", "manualRoles", "provider", "root", "status", "version" ]
       },
+      "ChangeEvent" : {
+        "type" : "object",
+        "description" : "One change to one record.",
+        "properties" : {
+          "actor" : {
+            "type" : "string",
+            "description" : "The id of the user who made the change."
+          },
+          "at" : {
+            "type" : "string",
+            "format" : "date-time",
+            "description" : "When the change happened."
+          },
+          "changes" : {
+            "type" : "array",
+            "description" : "The fields the change affected. A creation lists every field with a value, a deletion every field as it was.",
+            "items" : {
+              "$ref" : "#/components/schemas/FieldChange"
+            }
+          },
+          "correlationId" : {
+            "type" : "string",
+            "description" : "Shared by the changes of one action."
+          },
+          "entityId" : {
+            "type" : "string",
+            "description" : "The record's id; for roles, the role key."
+          },
+          "entityType" : {
+            "type" : "string",
+            "enum" : [ "event", "family", "person", "place", "role", "tree", "user" ]
+          },
+          "entityVersion" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "The record's version after the change; for a deletion, its last version."
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "created", "changed", "deleted", "restored" ]
+          },
+          "removedLinks" : {
+            "type" : "array",
+            "description" : "For a deletion: the references to the record it removed.",
+            "items" : {
+              "$ref" : "#/components/schemas/Link"
+            }
+          }
+        },
+        "required" : [ "actor", "at", "changes", "correlationId", "entityId", "entityType", "entityVersion", "id", "kind", "removedLinks" ]
+      },
       "FeatureAccess" : {
         "type" : "object",
         "properties" : {
@@ -1090,6 +1252,23 @@
         },
         "required" : [ "enabled", "key", "locked" ]
       },
+      "FieldChange" : {
+        "type" : "object",
+        "properties" : {
+          "after" : {
+            "type" : [ "string", "number", "boolean", "array", "object", "null" ],
+            "description" : "The value after; null when the field has none or the record was deleted."
+          },
+          "before" : {
+            "type" : [ "string", "number", "boolean", "array", "object", "null" ],
+            "description" : "The value before; null when the field had none or the record didn't exist."
+          },
+          "field" : {
+            "type" : "string"
+          }
+        },
+        "required" : [ "field" ]
+      },
       "IdentityProviderResponse" : {
         "type" : "object",
         "properties" : {
@@ -1111,6 +1290,25 @@
           }
         },
         "required" : [ "displayName", "id", "signInPath", "type" ]
+      },
+      "Link" : {
+        "type" : "object",
+        "description" : "A reference from one record to another.",
+        "properties" : {
+          "entityId" : {
+            "type" : "string",
+            "description" : "The id of the record that holds the reference."
+          },
+          "entityType" : {
+            "type" : "string",
+            "description" : "The type of the record that holds the reference."
+          },
+          "field" : {
+            "type" : "string",
+            "description" : "The field of that record that holds the reference."
+          }
+        },
+        "required" : [ "entityId", "entityType", "field" ]
       },
       "MeResponse" : {
         "type" : "object",
@@ -1148,6 +1346,22 @@
           }
         },
         "required" : [ "id", "permissions", "roles", "root", "status" ]
+      },
+      "PageResponseChangeEvent" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/ChangeEvent"
+            }
+          },
+          "next" : {
+            "type" : [ "string", "null" ],
+            "description" : "Opaque cursor of the next page: pass it as `after`. Null on the last page."
+          }
+        },
+        "required" : [ "items" ]
       },
       "ProblemDetail" : {
         "type" : "object",

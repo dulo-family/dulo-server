@@ -6,6 +6,9 @@ import com.dulo.core.access.service.AccessPolicy;
 import com.dulo.core.access.service.CurrentUserService;
 import com.dulo.core.access.service.RoleAdministrationService;
 import com.dulo.core.access.service.UserAdministrationService;
+import com.dulo.core.audit.port.out.ChangeEventRepository;
+import com.dulo.core.audit.recording.ChangeRecorder;
+import com.dulo.core.audit.service.AuditLogService;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.identity.port.out.SigningKeyRepository;
 import com.dulo.core.identity.service.IdentityProviderService;
@@ -34,12 +37,25 @@ public class CoreServicesConfiguration {
     }
 
     @Bean
+    ChangeRecorder changeRecorder(final ChangeEventRepository events, final Clock clock) {
+        return new ChangeRecorder(events, clock);
+    }
+
+    @Bean
     AccessPolicy accessPolicy(
             final UserRepository users,
             final RoleRepository roles,
             final TreeSettingsRepository trees,
             final FeatureOverridesPort featureOverrides) {
         return new AccessPolicy(users, roles, trees, featureOverrides);
+    }
+
+    @Bean
+    AuditLogService auditLogService(
+            final ChangeEventRepository events,
+            final AccessPolicy accessPolicy,
+            final UnitOfWork unitOfWork) {
+        return new AuditLogService(events, accessPolicy, unitOfWork);
     }
 
     @Bean
@@ -61,8 +77,10 @@ public class CoreServicesConfiguration {
             final UserRepository users,
             final IdentityProvidersPort providers,
             final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
-        return new RoleAdministrationService(roles, users, providers, accessPolicy, unitOfWork);
+        return new RoleAdministrationService(
+                roles, users, providers, accessPolicy, recorder, unitOfWork);
     }
 
     @Bean
@@ -74,6 +92,7 @@ public class CoreServicesConfiguration {
             final FeatureOverridesPort featureOverrides,
             final SetupTokenPort setupToken,
             final ConfigurationReportPort configurationReport,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
         return new SetupService(
                 users,
@@ -83,6 +102,7 @@ public class CoreServicesConfiguration {
                 featureOverrides,
                 setupToken,
                 configurationReport,
+                recorder,
                 unitOfWork);
     }
 
@@ -90,9 +110,10 @@ public class CoreServicesConfiguration {
     SignInService signInService(
             final UserRepository users,
             final IdentityProvidersPort providers,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork,
             final Clock clock) {
-        return new SignInService(users, providers, unitOfWork, clock);
+        return new SignInService(users, providers, recorder, unitOfWork, clock);
     }
 
     @Bean
@@ -106,8 +127,9 @@ public class CoreServicesConfiguration {
             final UserRepository users,
             final RoleRepository roles,
             final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
-        return new UserAdministrationService(users, roles, accessPolicy, unitOfWork);
+        return new UserAdministrationService(users, roles, accessPolicy, recorder, unitOfWork);
     }
 
     @Bean
@@ -115,7 +137,8 @@ public class CoreServicesConfiguration {
             final TreeSettingsRepository trees,
             final FeatureOverridesPort featureOverrides,
             final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
-        return new TreeService(trees, featureOverrides, accessPolicy, unitOfWork);
+        return new TreeService(trees, featureOverrides, accessPolicy, recorder, unitOfWork);
     }
 }

@@ -5,6 +5,7 @@ import com.dulo.core.access.port.in.RoleExistsException;
 import com.dulo.core.access.port.in.RoleInUseException;
 import com.dulo.core.access.port.out.RoleRepository;
 import com.dulo.core.access.port.out.UserRepository;
+import com.dulo.core.audit.recording.ChangeRecorder;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.domain.access.Access;
@@ -30,6 +31,7 @@ public class RoleAdministrationService implements ManageRolesUseCase {
     private final UserRepository users;
     private final IdentityProvidersPort providers;
     private final AccessPolicy accessPolicy;
+    private final ChangeRecorder recorder;
     private final UnitOfWork unitOfWork;
 
     public RoleAdministrationService(
@@ -37,11 +39,13 @@ public class RoleAdministrationService implements ManageRolesUseCase {
             final UserRepository users,
             final IdentityProvidersPort providers,
             final AccessPolicy accessPolicy,
+            final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
         this.roles = roles;
         this.users = users;
         this.providers = providers;
         this.accessPolicy = accessPolicy;
+        this.recorder = recorder;
         this.unitOfWork = unitOfWork;
     }
 
@@ -90,7 +94,11 @@ public class RoleAdministrationService implements ManageRolesUseCase {
                 throw new RoleExistsException(role.key());
             }
             requireWithinOwnPermissions(actor, role.permissions());
-            return this.roles.save(new Role(role.key(), role.name(), false, role.permissions(), 0));
+            final Role created =
+                    this.roles.save(
+                            new Role(role.key(), role.name(), false, role.permissions(), 0));
+            this.recorder.changeSet(caller).created(RoleFields.INSTANCE, created);
+            return created;
         });
     }
 
@@ -115,13 +123,16 @@ public class RoleAdministrationService implements ManageRolesUseCase {
             if (permissions != null) {
                 requireWithinOwnPermissions(actor, permissions);
             }
-            return this.roles.save(
-                    new Role(
-                            key,
-                            Optional.ofNullable(change.name()).orElse(role.name()),
-                            role.builtIn(),
-                            permissions == null ? role.permissions() : permissions,
-                            role.version()));
+            final Role changed =
+                    this.roles.save(
+                            new Role(
+                                    key,
+                                    Optional.ofNullable(change.name()).orElse(role.name()),
+                                    role.builtIn(),
+                                    permissions == null ? role.permissions() : permissions,
+                                    role.version()));
+            this.recorder.changeSet(caller).changed(RoleFields.INSTANCE, role, changed);
+            return changed;
         });
     }
 
@@ -147,6 +158,7 @@ public class RoleAdministrationService implements ManageRolesUseCase {
                 throw new RoleInUseException(key, holders, mappedBy);
             }
             this.roles.delete(role);
+            this.recorder.changeSet(caller).deleted(RoleFields.INSTANCE, role, List.of());
             return role;
         });
     }

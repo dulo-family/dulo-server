@@ -6,8 +6,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dulo.core.identity.port.in.ExternalSignIn;
 import com.dulo.core.identity.port.out.IdentityProvidersPort;
 import com.dulo.core.testing.DirectUnitOfWork;
+import com.dulo.core.testing.InMemoryChangeEvents;
 import com.dulo.core.testing.InMemoryUsers;
 import com.dulo.domain.access.RoleKey;
+import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.audit.FieldChange;
 import com.dulo.domain.identity.IdentityProvider;
 import com.dulo.domain.identity.RegistrationMode;
 import com.dulo.domain.identity.RoleMapping;
@@ -36,6 +40,7 @@ class SignInServiceTest {
     private final InMemoryUsers users = new InMemoryUsers();
     private RegistrationMode mode = RegistrationMode.APPROVAL;
     private RoleMapping mapping = new RoleMapping(Map.of("family-admins", Set.of(ADMIN)), VIEWER);
+    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final SignInService service =
             new SignInService(
                     this.users,
@@ -57,6 +62,7 @@ class SignInServiceTest {
                             return SignInServiceTest.this.mode;
                         }
                     },
+                    this.events.recorder(),
                     new DirectUnitOfWork(),
                     Clock.fixed(NOW, ZoneOffset.UTC));
 
@@ -109,6 +115,22 @@ class SignInServiceTest {
         assertThat(user.displayName()).isEqualTo("Ada L.");
         assertThat(user.email()).isNull();
         assertThat(user.version()).isEqualTo(1);
+        assertThat(this.events.kinds(EntityType.USER))
+                .containsExactly(ChangeKind.CREATED, ChangeKind.CHANGED);
+        assertThat(this.events.all())
+                .allSatisfy(event -> assertThat(event.actor()).isEqualTo(first));
+        assertThat(this.events.all().getLast().changes())
+                .extracting(FieldChange::field)
+                .containsExactly("email", "displayName");
+    }
+
+    @Test
+    void signingInWithoutChangesLeavesNoEvent() {
+        this.service.signIn(signIn());
+
+        this.service.signIn(signIn());
+
+        assertThat(this.events.kinds(EntityType.USER)).containsExactly(ChangeKind.CREATED);
     }
 
     @Test
