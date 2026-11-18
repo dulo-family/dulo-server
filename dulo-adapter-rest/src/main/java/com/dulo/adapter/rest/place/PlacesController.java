@@ -211,9 +211,9 @@ class PlacesController {
     @Operation(
             summary = "Delete a place",
             description =
-                    "Places that lie in it make the deletion fail with 409, which lists them. Send"
-                            + " `confirmed=true` to delete it anyway: those places then lie"
-                            + " nowhere.")
+                    "Places that lie in it and events there make the deletion fail with 409, which"
+                            + " lists them. Send `confirmed=true` to delete it anyway: those"
+                            + " places then lie nowhere, and those events have no place.")
     @ApiResponse(responseCode = "204", description = "Deleted")
     @ApiResponse(
             responseCode = "404",

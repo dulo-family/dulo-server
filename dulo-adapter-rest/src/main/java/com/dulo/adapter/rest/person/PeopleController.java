@@ -8,6 +8,7 @@ import com.dulo.adapter.rest.version.Versions;
 import com.dulo.core.person.port.in.ManagePeopleUseCase;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
+import com.dulo.domain.person.PersonSort;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
@@ -85,8 +86,8 @@ class PeopleController {
     @Operation(
             summary = "List people",
             description =
-                    "Sorted by the primary name: given name, then surname; people without a name"
-                            + " come first. In pages.")
+                    "Sorted by the primary name, by default given name, then surname; people"
+                            + " without a name come first. In pages.")
     @ApiResponse(responseCode = "200", description = "One page of people")
     @GetMapping(produces = MediaType.APPLICATION_JSON_VALUE)
     PageResponse<PersonResponse> people(
@@ -97,13 +98,29 @@ class PeopleController {
                                             + " case. All names and all their parts count.")
                     @RequestParam(name = "q", required = false)
                     final @Nullable String search,
+            @Parameter(
+                            description =
+                                    "`given`: given name, then surname. `surname`: surname, then"
+                                            + " given name. A cursor only reads on in the order it"
+                                            + " was made for.",
+                            schema = @Schema(allowableValues = {"given", "surname"}))
+                    @RequestParam(defaultValue = "given")
+                    final String sort,
             @Parameter(description = PageResponse.AFTER_DESCRIPTION) @RequestParam(required = false)
                     final @Nullable String after,
             @Parameter(description = PageResponse.LIMIT_DESCRIPTION)
                     @RequestParam(defaultValue = PageResponse.DEFAULT_LIMIT)
                     final int limit) {
         return PageResponse.from(
-                this.people.people(Callers.id(principal), search, after, limit),
+                this.people.people(
+                        Callers.id(principal),
+                        search,
+                        PersonSort.fromKey(sort)
+                                .orElseThrow(() ->
+                                        new IllegalArgumentException(
+                                                "Unknown sort '%s'".formatted(sort))),
+                        after,
+                        limit),
                 PersonResponse::from);
     }
 

@@ -6,6 +6,7 @@ import com.dulo.domain.person.NameType;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
+import com.dulo.domain.person.PersonSort;
 import com.dulo.domain.person.Sex;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.PagePosition;
@@ -80,8 +81,12 @@ public class PersonPersistenceAdapter implements PersonRepository {
 
     @Override
     public List<Person> find(
-            final @Nullable String search, final @Nullable PagePosition after, final int limit) {
-        final Keyset keyset = new Keyset().after(after, "p.sortName", "p.id");
+            final @Nullable String search,
+            final PersonSort sort,
+            final @Nullable PagePosition after,
+            final int limit) {
+        final String sortColumn = sort == PersonSort.GIVEN ? "p.sortName" : "p.surnameSortName";
+        final Keyset keyset = new Keyset().after(after, sortColumn, "p.id");
         if (search != null) {
             keyset.where(
                     "exists (select 1 from PersonJpaEntity named join named.names n"
@@ -94,7 +99,9 @@ public class PersonPersistenceAdapter implements PersonRepository {
                 this.entityManager.createQuery(
                         "select p from PersonJpaEntity p"
                                 + keyset.whereClause()
-                                + " order by p.sortName, p.id",
+                                + " order by "
+                                + sortColumn
+                                + ", p.id",
                         PersonJpaEntity.class);
         keyset.parameters().forEach(query::setParameter);
         return query.setMaxResults(limit).getResultList().stream()
@@ -118,7 +125,8 @@ public class PersonPersistenceAdapter implements PersonRepository {
                         });
         entity.setSex(person.sex().key());
         entity.setNotes(person.notes());
-        entity.setSortName(person.sortName());
+        entity.setSortName(person.sortName(PersonSort.GIVEN));
+        entity.setSurnameSortName(person.sortName(PersonSort.SURNAME));
         entity.setNames(person.names().stream().map(PersonPersistenceAdapter::row).toList());
         return toDomain(this.repository.saveAndFlush(entity));
     }

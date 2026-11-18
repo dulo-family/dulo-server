@@ -4,6 +4,8 @@ import com.dulo.core.access.service.AccessPolicy;
 import com.dulo.core.audit.port.out.ChangeEventRepository;
 import com.dulo.core.audit.recording.ChangeRecorder;
 import com.dulo.core.audit.recording.ChangeSet;
+import com.dulo.core.event.port.out.EventRepository;
+import com.dulo.core.event.service.EventFields;
 import com.dulo.core.place.port.in.ManagePlacesUseCase;
 import com.dulo.core.place.port.out.PlaceRepository;
 import com.dulo.core.shared.port.in.HasLinksException;
@@ -14,6 +16,7 @@ import com.dulo.domain.access.Access;
 import com.dulo.domain.audit.ChangeEvent;
 import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.audit.Link;
+import com.dulo.domain.event.Event;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.place.Place;
 import com.dulo.domain.place.PlaceId;
@@ -25,6 +28,7 @@ import com.dulo.domain.user.UserId;
 
 import org.jspecify.annotations.Nullable;
 
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -34,6 +38,7 @@ public class PlaceService implements ManagePlacesUseCase {
     private static final String PLACE = "place";
 
     private final PlaceRepository places;
+    private final EventRepository eventRecords;
     private final ChangeEventRepository events;
     private final AccessPolicy accessPolicy;
     private final ChangeRecorder recorder;
@@ -41,11 +46,13 @@ public class PlaceService implements ManagePlacesUseCase {
 
     public PlaceService(
             final PlaceRepository places,
+            final EventRepository eventRecords,
             final ChangeEventRepository events,
             final AccessPolicy accessPolicy,
             final ChangeRecorder recorder,
             final UnitOfWork unitOfWork) {
         this.places = places;
+        this.eventRecords = eventRecords;
         this.events = events;
         this.accessPolicy = accessPolicy;
         this.recorder = recorder;
@@ -142,14 +149,15 @@ public class PlaceService implements ManagePlacesUseCase {
             final Place place = this.find(id);
             checkVersion(place, expectedVersion);
             final List<Place> enclosed = this.places.findEnclosedBy(id);
-            final List<Link> links =
-                    enclosed.stream()
-                            .map(child ->
-                                    new Link(
-                                            EntityType.PLACE,
-                                            child.id().toString(),
-                                            PlaceFields.ENCLOSED_BY))
-                            .toList();
+            final List<Event> events = this.eventRecords.findAtPlace(id);
+            final List<Link> links = new ArrayList<>();
+            for (final Place child : enclosed) {
+                links.add(
+                        new Link(EntityType.PLACE, child.id().toString(), PlaceFields.ENCLOSED_BY));
+            }
+            for (final Event event : events) {
+                links.add(new Link(EntityType.EVENT, event.id().toString(), EventFields.PLACE));
+            }
             if (!links.isEmpty() && !confirmed) {
                 throw new HasLinksException(PLACE, id, links);
             }
@@ -157,6 +165,10 @@ public class PlaceService implements ManagePlacesUseCase {
             for (final Place child : enclosed) {
                 changes.changed(
                         PlaceFields.INSTANCE, child, this.places.save(child.withoutEnclosure()));
+            }
+            for (final Event event : events) {
+                changes.changed(
+                        EventFields.INSTANCE, event, this.eventRecords.save(event.withoutPlace()));
             }
             this.places.delete(place);
             changes.deleted(PlaceFields.INSTANCE, place, links);

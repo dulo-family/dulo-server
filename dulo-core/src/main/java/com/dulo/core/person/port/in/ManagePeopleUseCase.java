@@ -4,6 +4,7 @@ import com.dulo.domain.audit.ChangeEvent;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
+import com.dulo.domain.person.PersonSort;
 import com.dulo.domain.person.Sex;
 import com.dulo.domain.shared.CursorPage;
 import com.dulo.domain.user.UserId;
@@ -19,16 +20,21 @@ import java.util.List;
 public interface ManagePeopleUseCase {
 
     /**
-     * One page of people, sorted by the primary name: given name, then surname. Needs view access.
+     * One page of people, sorted by their primary name. Needs view access.
      *
      * @param search only people with a name that contains this text, ignoring case; null for all
+     * @param sort the order; a cursor reads the next page only in the order it was made for
      * @param after the cursor of the previous page, or null for the first page
      * @param limit the page size, see {@link CursorPage#checkLimit(int)}
      * @throws IllegalArgumentException for an invalid cursor, limit or search
      * @throws com.dulo.domain.access.AccessDeniedException if the caller may not view people
      */
     CursorPage<Person> people(
-            UserId caller, @Nullable String search, @Nullable String after, int limit);
+            UserId caller,
+            @Nullable String search,
+            PersonSort sort,
+            @Nullable String after,
+            int limit);
 
     /**
      * Needs view access.

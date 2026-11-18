@@ -3,16 +3,10 @@ package com.dulo.core.place.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dulo.core.access.service.AccessPolicy;
+import com.dulo.core.event.port.in.ManageEventsUseCase.EventContent;
 import com.dulo.core.place.port.in.ManagePlacesUseCase.PlaceContent;
 import com.dulo.core.shared.port.in.HasLinksException;
-import com.dulo.core.testing.DirectUnitOfWork;
-import com.dulo.core.testing.InMemoryChangeEvents;
-import com.dulo.core.testing.InMemoryPlaces;
-import com.dulo.core.testing.InMemoryRoles;
-import com.dulo.core.testing.InMemoryTrees;
-import com.dulo.core.testing.InMemoryUsers;
-import com.dulo.core.testing.Users;
+import com.dulo.core.testing.Genealogy;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.audit.ChangeEvent;
@@ -20,8 +14,8 @@ import com.dulo.domain.audit.ChangeKind;
 import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.audit.FieldChange;
 import com.dulo.domain.audit.Link;
-import com.dulo.domain.feature.Feature;
-import com.dulo.domain.feature.FeatureOverrides;
+import com.dulo.domain.event.Event;
+import com.dulo.domain.event.EventType;
 import com.dulo.domain.place.Coordinates;
 import com.dulo.domain.place.Place;
 import com.dulo.domain.place.PlaceId;
@@ -29,36 +23,19 @@ import com.dulo.domain.place.PlaceType;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.CursorPage;
 import com.dulo.domain.shared.NotFoundException;
-import com.dulo.domain.tree.TreeSettings;
 import com.dulo.domain.user.UserId;
-import com.dulo.domain.user.UserStatus;
 
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 class PlaceServiceTest {
 
-    private final InMemoryUsers users = new InMemoryUsers();
-    private final InMemoryPlaces places = new InMemoryPlaces();
-    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
-    private final PlaceService service =
-            new PlaceService(
-                    this.places,
-                    this.events,
-                    new AccessPolicy(
-                            this.users,
-                            new InMemoryRoles(DefaultRoles.all()),
-                            new InMemoryTrees(
-                                    TreeSettings.create("Smiths", null, Set.of(Feature.PLACES))),
-                            FeatureOverrides::none),
-                    this.events.recorder(),
-                    new DirectUnitOfWork());
-    private final UserId editor =
-            this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.EDITOR)).id();
+    private final Genealogy tree = new Genealogy();
+    private final PlaceService service = this.tree.placeService();
+    private final UserId editor = this.tree.user(DefaultRoles.EDITOR);
 
     private static PlaceContent content(final String name, final @Nullable PlaceId enclosedBy) {
         return new PlaceContent(name, PlaceType.TOWN, null, enclosedBy);
@@ -152,10 +129,10 @@ class PlaceServiceTest {
                         HasLinksException.class, e -> assertThat(e.links()).isEqualTo(links));
         this.service.deletePlace(this.editor, county.id(), county.version(), true);
 
-        assertThat(this.places.find(county.id())).isEmpty();
+        assertThat(this.tree.places().find(county.id())).isEmpty();
         assertThat(this.service.place(this.editor, town.id()).enclosedBy()).isNull();
         // The unlinking and the deletion are one action, and the deletion lists the links.
-        final List<ChangeEvent> last = this.events.all().subList(2, 4);
+        final List<ChangeEvent> last = this.tree.changes().all().subList(2, 4);
         assertThat(last)
                 .extracting(ChangeEvent::kind)
                 .containsExactly(ChangeKind.CHANGED, ChangeKind.DELETED);
@@ -172,10 +149,8 @@ class PlaceServiceTest {
     @Test
     void checksVersionsAccessAndExistence() {
         final Place town = this.service.createPlace(this.editor, content("Stadt", null));
-        final UserId viewer =
-                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.VIEWER)).id();
-        final UserId contributor =
-                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.CONTRIBUTOR)).id();
+        final UserId viewer = this.tree.user(DefaultRoles.VIEWER);
+        final UserId contributor = this.tree.user(DefaultRoles.CONTRIBUTOR);
 
         assertThat(this.service.place(viewer, town.id())).isEqualTo(town);
         assertThatThrownBy(() -> this.service.createPlace(viewer, content("No", null)))
@@ -194,5 +169,38 @@ class PlaceServiceTest {
                 .isInstanceOf(NotFoundException.class);
         assertThatThrownBy(() -> this.service.placeHistory(this.editor, PlaceId.newId()))
                 .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void deletingAPlaceWithEventsThereNeedsConfirmation() {
+        final Place church = this.service.createPlace(this.editor, content("Kirche", null));
+        final Event wedding =
+                this.tree
+                        .eventService()
+                        .createEvent(
+                                this.editor,
+                                new EventContent(
+                                        EventType.MARRIAGE,
+                                        null,
+                                        null,
+                                        church.id(),
+                                        null,
+                                        null,
+                                        List.of()));
+
+        assertThatThrownBy(() ->
+                        this.service.deletePlace(this.editor, church.id(), church.version(), false))
+                .isInstanceOfSatisfying(
+                        HasLinksException.class,
+                        e ->
+                                assertThat(e.links())
+                                        .containsExactly(
+                                                new Link(
+                                                        EntityType.EVENT,
+                                                        wedding.id().toString(),
+                                                        "place")));
+        this.service.deletePlace(this.editor, church.id(), church.version(), true);
+
+        assertThat(this.tree.events().find(wedding.id()).orElseThrow().place()).isNull();
     }
 }

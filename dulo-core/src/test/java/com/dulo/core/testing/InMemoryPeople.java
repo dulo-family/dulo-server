@@ -4,6 +4,7 @@ import com.dulo.core.person.port.out.PersonRepository;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
+import com.dulo.domain.person.PersonSort;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.PagePosition;
 
@@ -27,16 +28,20 @@ public final class InMemoryPeople implements PersonRepository {
 
     @Override
     public List<Person> find(
-            final @Nullable String search, final @Nullable PagePosition after, final int limit) {
+            final @Nullable String search,
+            final PersonSort sort,
+            final @Nullable PagePosition after,
+            final int limit) {
         return this.people.values().stream()
                 .filter(p ->
                         search == null
                                 || p.names().stream()
                                         .map(PersonName::searchText)
                                         .anyMatch(text -> text.contains(search)))
-                .filter(p -> after == null || Pages.isAfter(p.sortName(), p.id().value(), after))
+                .filter(p ->
+                        after == null || Pages.isAfter(p.sortName(sort), p.id().value(), after))
                 .sorted(
-                        Comparator.comparing(Person::sortName)
+                        Comparator.comparing((Person p) -> p.sortName(sort))
                                 .thenComparing(p -> p.id().toString()))
                 .limit(limit)
                 .toList();
