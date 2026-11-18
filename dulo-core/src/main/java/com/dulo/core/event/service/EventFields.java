@@ -1,11 +1,18 @@
 package com.dulo.core.event.service;
 
-import com.dulo.core.audit.recording.RecordFields;
+import com.dulo.core.audit.recording.FieldReader;
+import com.dulo.core.audit.recording.RestorableFields;
 import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.date.DateModifier;
 import com.dulo.domain.date.GenealogicalDate;
 import com.dulo.domain.date.PartialDate;
 import com.dulo.domain.event.Event;
+import com.dulo.domain.event.EventId;
+import com.dulo.domain.event.EventType;
+import com.dulo.domain.event.Participant;
+import com.dulo.domain.event.ParticipantRole;
 import com.dulo.domain.family.FamilyId;
+import com.dulo.domain.person.PersonId;
 import com.dulo.domain.place.PlaceId;
 
 import org.jspecify.annotations.Nullable;
@@ -14,7 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Events in the audit history. */
-public final class EventFields implements RecordFields<Event> {
+public final class EventFields implements RestorableFields<Event> {
 
     public static final EventFields INSTANCE = new EventFields();
 
@@ -66,6 +73,34 @@ public final class EventFields implements RecordFields<Event> {
         return parts;
     }
 
+    private static @Nullable PartialDate partialDate(final @Nullable Map<?, ?> parts) {
+        if (parts == null) {
+            return null;
+        }
+        final Integer year = FieldReader.optionalInt(parts, "year");
+        if (year == null) {
+            throw new IllegalArgumentException("A date needs a year");
+        }
+        return new PartialDate(
+                year,
+                FieldReader.optionalInt(parts, "month"),
+                FieldReader.optionalInt(parts, "day"));
+    }
+
+    private static @Nullable GenealogicalDate date(final @Nullable Map<?, ?> parts) {
+        if (parts == null) {
+            return null;
+        }
+        return new GenealogicalDate(
+                FieldReader.constant(
+                        FieldReader.text(parts, "modifier"),
+                        "date modifier",
+                        DateModifier::fromKey),
+                partialDate(FieldReader.optionalMap(parts, "start")),
+                partialDate(FieldReader.optionalMap(parts, "end")),
+                FieldReader.optionalText(parts, "text"));
+    }
+
     @Override
     public EntityType entityType() {
         return EntityType.EVENT;
@@ -102,5 +137,33 @@ public final class EventFields implements RecordFields<Event> {
                                         "role", participant.role().key()))
                         .toList());
         return fields;
+    }
+
+    @Override
+    public Event fromFields(final String id, final Map<String, Object> fields) {
+        final String place = FieldReader.optionalText(fields, PLACE);
+        final String family = FieldReader.optionalText(fields, FAMILY);
+        return new Event(
+                EventId.parse(id),
+                FieldReader.constant(
+                        FieldReader.text(fields, "type"), "event type", EventType::fromKey),
+                FieldReader.optionalText(fields, "customType"),
+                date(FieldReader.optionalMap(fields, "date")),
+                place == null ? null : PlaceId.parse(place),
+                family == null ? null : FamilyId.parse(family),
+                FieldReader.optionalText(fields, "description"),
+                FieldReader.list(
+                        fields,
+                        PARTICIPANTS,
+                        element -> {
+                            final Map<?, ?> participant = FieldReader.asMap(element);
+                            return new Participant(
+                                    PersonId.parse(FieldReader.text(participant, "person")),
+                                    FieldReader.constant(
+                                            FieldReader.text(participant, "role"),
+                                            "participant role",
+                                            ParticipantRole::fromKey));
+                        }),
+                0);
     }
 }

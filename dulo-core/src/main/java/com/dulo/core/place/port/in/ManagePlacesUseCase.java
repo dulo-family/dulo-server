@@ -1,6 +1,7 @@
 package com.dulo.core.place.port.in;
 
 import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
 import com.dulo.domain.place.Coordinates;
 import com.dulo.domain.place.Place;
 import com.dulo.domain.place.PlaceId;
@@ -66,6 +67,30 @@ public interface ManagePlacesUseCase {
      *     deletion is not confirmed
      */
     void deletePlace(UserId caller, PlaceId id, long expectedVersion, boolean confirmed);
+
+    /**
+     * Brings the place back to its state right after one of its changes, as a new change. A deleted
+     * place comes back with the links its deletion removed, where the other records still exist and
+     * take them. Needs edit access, or create access for a deleted place.
+     *
+     * @param eventId the change whose result to restore
+     * @param expectedVersion the version the caller saw; required while the place exists
+     * @param confirmed whether to restore even if some links can't come back, leaving them out
+     * @throws com.dulo.domain.shared.NotFoundException if the place never existed, or the change
+     *     isn't one of its
+     * @throws IllegalArgumentException if the change is a deletion
+     * @throws com.dulo.core.shared.port.in.VersionRequiredException if the place exists and no
+     *     version is given
+     * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
+     * @throws com.dulo.core.shared.port.in.RestoreConflictException if some links can't come back
+     *     and the restore is not confirmed
+     */
+    Place restorePlace(
+            UserId caller,
+            PlaceId id,
+            ChangeEventId eventId,
+            @Nullable Long expectedVersion,
+            boolean confirmed);
 
     /**
      * Every change to the place, oldest first, also after it was deleted. Needs view access.

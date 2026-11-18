@@ -4,19 +4,25 @@ import com.dulo.core.access.service.AccessPolicy;
 import com.dulo.core.audit.port.out.ChangeEventRepository;
 import com.dulo.core.audit.recording.ChangeRecorder;
 import com.dulo.core.audit.recording.ChangeSet;
+import com.dulo.core.audit.recording.Replay;
 import com.dulo.core.event.port.out.EventRepository;
 import com.dulo.core.event.service.EventFields;
 import com.dulo.core.place.port.in.ManagePlacesUseCase;
 import com.dulo.core.place.port.out.PlaceRepository;
 import com.dulo.core.shared.port.in.HasLinksException;
+import com.dulo.core.shared.port.in.RestoreConflictException;
+import com.dulo.core.shared.port.in.VersionRequiredException;
 import com.dulo.core.shared.port.out.UnitOfWork;
 import com.dulo.core.shared.service.Cursors;
+import com.dulo.core.shared.service.Relink;
 import com.dulo.core.shared.service.Searches;
 import com.dulo.domain.access.Access;
 import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
 import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.audit.Link;
 import com.dulo.domain.event.Event;
+import com.dulo.domain.event.EventId;
 import com.dulo.domain.feature.Feature;
 import com.dulo.domain.place.Place;
 import com.dulo.domain.place.PlaceId;
@@ -31,6 +37,7 @@ import org.jspecify.annotations.Nullable;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Optional;
 import java.util.Set;
 
 public class PlaceService implements ManagePlacesUseCase {
@@ -177,6 +184,66 @@ public class PlaceService implements ManagePlacesUseCase {
     }
 
     @Override
+    public Place restorePlace(
+            final UserId caller,
+            final PlaceId id,
+            final ChangeEventId eventId,
+            final @Nullable Long expectedVersion,
+            final boolean confirmed) {
+        return this.unitOfWork.write(() -> {
+            final List<ChangeEvent> history = this.events.history(EntityType.PLACE, id.toString());
+            if (history.isEmpty()) {
+                throw new NotFoundException("Place", id);
+            }
+            final Optional<Place> current = this.places.find(id);
+            this.accessPolicy.require(
+                    caller, Feature.PLACES, current.isPresent() ? Access.EDIT : Access.CREATE);
+            Place target =
+                    PlaceFields.INSTANCE.fromFields(
+                            id.toString(), Replay.stateAfter(history, eventId));
+            if (current.isPresent()) {
+                if (expectedVersion == null) {
+                    throw new VersionRequiredException("place", id);
+                }
+                checkVersion(current.get(), expectedVersion);
+            }
+            final List<Link> conflicts = new ArrayList<>();
+            final PlaceId enclosedBy = target.enclosedBy();
+            if (enclosedBy != null && this.enclosureProblem(target) != null) {
+                conflicts.add(
+                        new Link(EntityType.PLACE, enclosedBy.toString(), PlaceFields.ENCLOSED_BY));
+                target = target.withoutEnclosure();
+            }
+            final ChangeEvent deletion = Replay.lastDeletion(history);
+            final List<Relink<?>> relinks =
+                    deletion == null ? List.of() : this.relinks(target, deletion, conflicts);
+            if (!conflicts.isEmpty() && !confirmed) {
+                throw new RestoreConflictException("place", id, conflicts);
+            }
+            // The record is already as it was: nothing to change.
+            if (current.isPresent()
+                    && PlaceFields.INSTANCE
+                            .fields(current.get())
+                            .equals(PlaceFields.INSTANCE.fields(target))) {
+                return current.get();
+            }
+            final Place stored =
+                    this.places.save(
+                            new Place(
+                                    id,
+                                    target.name(),
+                                    target.type(),
+                                    target.coordinates(),
+                                    target.enclosedBy(),
+                                    current.map(Place::version).orElse(0L)));
+            final ChangeSet changes = this.recorder.changeSet(caller);
+            changes.restored(PlaceFields.INSTANCE, current.orElse(null), stored);
+            relinks.forEach(relink -> relink.apply(changes));
+            return stored;
+        });
+    }
+
+    @Override
     public List<ChangeEvent> placeHistory(final UserId caller, final PlaceId id) {
         return this.unitOfWork.read(() -> {
             this.accessPolicy.require(caller, Feature.PLACES, Access.VIEW);
@@ -190,23 +257,85 @@ public class PlaceService implements ManagePlacesUseCase {
 
     /** The enclosing place must exist, and the place must not end up lying in itself. */
     private void checkEnclosure(final Place place) {
+        final String problem = this.enclosureProblem(place);
+        if (problem != null) {
+            throw new IllegalArgumentException(problem);
+        }
+    }
+
+    /** Why the place can't lie where it says, or null if it can. */
+    private @Nullable String enclosureProblem(final Place place) {
         final Set<PlaceId> seen = new HashSet<>();
         PlaceId current = place.enclosedBy();
         while (current != null && seen.add(current)) {
             if (current.equals(place.id())) {
-                throw new IllegalArgumentException(
-                        "The place '%s' would lie in itself".formatted(place.name()));
+                return "The place '%s' would lie in itself".formatted(place.name());
             }
-            final PlaceId parentId = current;
-            current =
-                    this.places
-                            .find(parentId)
-                            .orElseThrow(() ->
-                                    new IllegalArgumentException(
-                                            "The enclosing place '%s' doesn't exist"
-                                                    .formatted(parentId)))
-                            .enclosedBy();
+            final Optional<Place> parent = this.places.find(current);
+            if (parent.isEmpty()) {
+                return "The enclosing place '%s' doesn't exist".formatted(current);
+            }
+            current = parent.get().enclosedBy();
         }
+        return null;
+    }
+
+    /** The places the place lies in, directly or not. */
+    private Set<PlaceId> ancestors(final Place place) {
+        final Set<PlaceId> ancestors = new HashSet<>();
+        PlaceId current = place.enclosedBy();
+        while (current != null && ancestors.add(current)) {
+            current = this.places.find(current).map(Place::enclosedBy).orElse(null);
+        }
+        return ancestors;
+    }
+
+    /**
+     * The links the deletion removed that can come back: places that still lie nowhere, and events
+     * that still have no place. The others are added to the conflicts.
+     */
+    private List<Relink<?>> relinks(
+            final Place place, final ChangeEvent deletion, final List<Link> conflicts) {
+        final List<Relink<?>> relinks = new ArrayList<>();
+        final Set<PlaceId> ancestors = this.ancestors(place);
+        for (final Link link : deletion.removedLinks()) {
+            switch (link.entityType()) {
+                case PLACE -> {
+                    final Optional<Place> child = this.places.find(PlaceId.parse(link.entityId()));
+                    if (child.isEmpty()
+                            || (child.get().enclosedBy() != null
+                                    && !place.id().equals(child.get().enclosedBy()))
+                            || ancestors.contains(child.get().id())) {
+                        conflicts.add(link);
+                    } else if (child.get().enclosedBy() == null) {
+                        relinks.add(
+                                new Relink<>(
+                                        PlaceFields.INSTANCE,
+                                        child.get(),
+                                        child.get().enclosedIn(place.id()),
+                                        this.places::save));
+                    }
+                }
+                case EVENT -> {
+                    final Optional<Event> event =
+                            this.eventRecords.find(EventId.parse(link.entityId()));
+                    if (event.isEmpty()
+                            || (event.get().place() != null
+                                    && !place.id().equals(event.get().place()))) {
+                        conflicts.add(link);
+                    } else if (event.get().place() == null) {
+                        relinks.add(
+                                new Relink<>(
+                                        EventFields.INSTANCE,
+                                        event.get(),
+                                        event.get().atPlace(place.id()),
+                                        this.eventRecords::save));
+                    }
+                }
+                default -> conflicts.add(link);
+            }
+        }
+        return relinks;
     }
 
     private Place find(final PlaceId id) {

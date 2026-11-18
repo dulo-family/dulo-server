@@ -69,6 +69,36 @@ public record Family(
         return Stream.concat(partners.stream(), children.stream().map(Child::person)).toList();
     }
 
+    /**
+     * The family with another partner.
+     *
+     * @throws IllegalArgumentException if the family has two partners already, or the person is a
+     *     member
+     */
+    public Family withPartner(final PersonId partner) {
+        return new Family(
+                id,
+                Stream.concat(partners.stream(), Stream.of(partner)).toList(),
+                relationshipType,
+                children,
+                version);
+    }
+
+    /**
+     * The family with another child, last.
+     *
+     * @throws IllegalArgumentException if the family has the most children already, or the person
+     *     is a member
+     */
+    public Family withChild(final Child child) {
+        return new Family(
+                id,
+                partners,
+                relationshipType,
+                Stream.concat(children.stream(), Stream.of(child)).toList(),
+                version);
+    }
+
     /** The family without the person, as partner or as child. */
     public Family without(final PersonId person) {
         return new Family(

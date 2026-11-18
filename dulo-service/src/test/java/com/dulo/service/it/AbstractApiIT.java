@@ -1341,6 +1341,149 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void restoreLifecycle() throws Exception {
+        this.completeSetupIfPending();
+        final String admin = this.signInAsAdmin("it-restore-admin");
+        this.enableFeatures(admin, "people", "families", "events", "audit-log");
+        final String anna =
+                "{\"names\": [{\"type\": \"birth\", \"given\": \"Anna\", \"surname\": \"Weber\"}],"
+                        + " \"sex\": \"female\"}";
+        final String mother = this.createId(admin, "/api/v1/people", anna);
+        final String child =
+                this.createId(admin, "/api/v1/people", "{\"names\": [], \"sex\": \"male\"}");
+        final String family =
+                this.createId(
+                        admin,
+                        "/api/v1/families",
+                        "{\"partners\": [\""
+                                + mother
+                                + "\"], \"relationshipType\": \"married\", \"children\": [{\"person\": \""
+                                + child
+                                + "\", \"relation\": \"adopted\"}]}");
+        final String birth =
+                this.createId(
+                        admin,
+                        "/api/v1/events",
+                        "{\"type\": \"birth\", \"participants\": [{\"person\": \""
+                                + child
+                                + "\", \"role\": \"principal\"}, {\"person\": \""
+                                + mother
+                                + "\", \"role\": \"witness\"}]}");
+        final String path = "/api/v1/people/" + mother;
+        assertThat(
+                        this.call(
+                                        "PUT",
+                                        path,
+                                        admin,
+                                        anna.replace("Anna", "Anne"),
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(200);
+        final String creation =
+                JSON.readTree(this.get(path + "/history", admin).body())
+                        .get(0)
+                        .path("id")
+                        .asString();
+        final String restore = "{\"eventId\": \"" + creation + "\"}";
+
+        // An existing person needs If-Match.
+        final HttpResponse<String> noVersion = this.call("POST", path + "/restore", admin, restore);
+        assertThat(noVersion.statusCode()).isEqualTo(428);
+        assertThat(problemType(noVersion)).isEqualTo("urn:dulo:problem:precondition-required");
+        final HttpResponse<String> restored =
+                this.call("POST", path + "/restore", admin, restore, "If-Match", "\"1\"");
+        assertThat(restored.statusCode()).as(restored.body()).isEqualTo(200);
+        assertThat(restored.headers().firstValue("ETag")).hasValue("\"2\"");
+        assertThat(JSON.readTree(restored.body()).path("names").get(0).path("given").asString())
+                .isEqualTo("Anna");
+
+        // A deleted person comes back into the family and the event.
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        path + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        "\"2\"")
+                                .statusCode())
+                .isEqualTo(204);
+        final HttpResponse<String> undeleted = this.call("POST", path + "/restore", admin, restore);
+        assertThat(undeleted.statusCode()).as(undeleted.body()).isEqualTo(200);
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/families/" + family, admin).body())
+                                .path("partners")
+                                .get(0)
+                                .asString())
+                .isEqualTo(mother);
+        final JsonNode participants =
+                JSON.readTree(this.get("/api/v1/events/" + birth, admin).body())
+                        .path("participants");
+        assertThat(participants.findValuesAsString("person")).containsExactly(child, mother);
+        assertThat(participants.get(1).path("role").asString()).isEqualTo("witness");
+        assertThat(
+                        JSON.readTree(this.get(path + "/history", admin).body())
+                                .findValuesAsString("kind"))
+                .containsExactly("created", "changed", "restored", "deleted", "restored");
+
+        // Links that can't come back need confirmation: here, to an event deleted since.
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        path + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        undeleted.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(204);
+        final HttpResponse<String> event = this.get("/api/v1/events/" + birth, admin);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/events/" + birth,
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        event.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(204);
+        final HttpResponse<String> conflict = this.call("POST", path + "/restore", admin, restore);
+        assertThat(conflict.statusCode()).isEqualTo(409);
+        assertThat(problemType(conflict)).isEqualTo("urn:dulo:problem:restore-conflict");
+        assertThat(JSON.readTree(conflict.body()).path("links").findValuesAsString("entityId"))
+                .containsExactly(birth);
+        assertThat(this.call("POST", path + "/restore?confirmed=true", admin, restore).statusCode())
+                .isEqualTo(200);
+
+        // The change must be one of the person's, and not a deletion.
+        final JsonNode history = JSON.readTree(this.get(path + "/history", admin).body());
+        final String deletion = history.get(3).path("id").asString();
+        assertThat(
+                        this.call(
+                                        "POST",
+                                        "/api/v1/people/" + child + "/restore",
+                                        admin,
+                                        restore,
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(404);
+        assertThat(
+                        this.call(
+                                        "POST",
+                                        path + "/restore",
+                                        admin,
+                                        "{\"eventId\": \"" + deletion + "\"}",
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(400);
+        assertThat(this.call("POST", path + "/restore", admin, "{}").statusCode()).isEqualTo(400);
+    }
+
+    @Test
     void changeEventsRoundTrip() {
         final String placeId = UUID.randomUUID().toString();
         final UserId actor = UserId.newId();

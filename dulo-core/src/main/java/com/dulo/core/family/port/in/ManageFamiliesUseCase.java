@@ -1,6 +1,7 @@
 package com.dulo.core.family.port.in;
 
 import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
 import com.dulo.domain.family.Child;
 import com.dulo.domain.family.Family;
 import com.dulo.domain.family.FamilyId;
@@ -66,6 +67,30 @@ public interface ManageFamiliesUseCase {
      *     deletion is not confirmed
      */
     void deleteFamily(UserId caller, FamilyId id, long expectedVersion, boolean confirmed);
+
+    /**
+     * Brings the family back to its state right after one of its changes, as a new change. A
+     * deleted family comes back with the links its deletion removed, where the other records still
+     * exist and take them. Needs edit access, or create access for a deleted family.
+     *
+     * @param eventId the change whose result to restore
+     * @param expectedVersion the version the caller saw; required while the family exists
+     * @param confirmed whether to restore even if some links can't come back, leaving them out
+     * @throws com.dulo.domain.shared.NotFoundException if the family never existed, or the change
+     *     isn't one of its
+     * @throws IllegalArgumentException if the change is a deletion
+     * @throws com.dulo.core.shared.port.in.VersionRequiredException if the family exists and no
+     *     version is given
+     * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
+     * @throws com.dulo.core.shared.port.in.RestoreConflictException if some links can't come back
+     *     and the restore is not confirmed
+     */
+    Family restoreFamily(
+            UserId caller,
+            FamilyId id,
+            ChangeEventId eventId,
+            @Nullable Long expectedVersion,
+            boolean confirmed);
 
     /**
      * Every change to the family, oldest first, also after it was deleted. Needs view access.
