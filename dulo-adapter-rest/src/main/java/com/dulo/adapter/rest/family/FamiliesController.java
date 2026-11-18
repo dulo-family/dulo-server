@@ -1,6 +1,7 @@
 package com.dulo.adapter.rest.family;
 
 import com.dulo.adapter.rest.audit.ChangeEventResponse;
+import com.dulo.adapter.rest.audit.RestoreRequest;
 import com.dulo.adapter.rest.caller.Callers;
 import com.dulo.adapter.rest.openapi.SecuritySchemes;
 import com.dulo.adapter.rest.paging.PageResponse;
@@ -277,6 +278,90 @@ class FamiliesController {
                 Versions.fromIfMatch(ifMatch),
                 confirmed);
         return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            summary = "Restore a family",
+            description =
+                    "Brings the family back to the state it had right after a change from its"
+                            + " history, as a new change: also a deleted family. A deleted family"
+                            + " gets back its events, where those don't belong to another family"
+                            + " now."
+                            + " Links that can't come back, such as to records that are gone,"
+                            + " make it fail with 409, which lists them; send `confirmed=true` to"
+                            + " restore without them. Needs edit access, or create access for a"
+                            + " deleted family.")
+    @ApiResponse(
+            responseCode = "200",
+            description = "The restored family",
+            headers =
+                    @Header(
+                            name = HttpHeaders.ETAG,
+                            description = "New version of the family",
+                            schema = @Schema(type = "string")))
+    @ApiResponse(
+            responseCode = "404",
+            description =
+                    "The family never existed, or the change isn't its. The problem type is"
+                            + " `urn:dulo:problem:not-found`.",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(
+            responseCode = "409",
+            description =
+                    "Some links can't come back and the restore isn't confirmed. The problem type"
+                            + " is `urn:dulo:problem:restore-conflict`. Its `links` member lists"
+                            + " them: the other record and the field.",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(
+            responseCode = "412",
+            description =
+                    "The family changed since it was read. The problem type is"
+                            + " `urn:dulo:problem:concurrent-modification`.",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    @ApiResponse(
+            responseCode = "428",
+            description =
+                    "The family exists and If-Match is missing. The problem type is"
+                            + " `urn:dulo:problem:precondition-required`.",
+            content =
+                    @Content(
+                            mediaType = MediaType.APPLICATION_PROBLEM_JSON_VALUE,
+                            schema = @Schema(implementation = ProblemDetail.class)))
+    @PostMapping(
+            path = "/{id}/restore",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    ResponseEntity<FamilyResponse> restoreFamily(
+            final Principal principal,
+            @PathVariable final String id,
+            @Parameter(
+                            in = ParameterIn.HEADER,
+                            name = HttpHeaders.IF_MATCH,
+                            description =
+                                    "The version you saw, from the ETag. Required while the"
+                                            + " family exists; leave it out for a deleted one.")
+                    @RequestHeader(name = HttpHeaders.IF_MATCH, required = false)
+                    final @Nullable String ifMatch,
+            @Parameter(description = "Restore even if some links can't come back.")
+                    @RequestParam(defaultValue = "false")
+                    final boolean confirmed,
+            @RequestBody final RestoreRequest request) {
+        return withETag(
+                this.families.restoreFamily(
+                        Callers.id(principal),
+                        FamilyId.parse(id),
+                        request.toEventId(),
+                        ifMatch == null ? null : Versions.fromIfMatch(ifMatch),
+                        confirmed));
     }
 
     @Operation(

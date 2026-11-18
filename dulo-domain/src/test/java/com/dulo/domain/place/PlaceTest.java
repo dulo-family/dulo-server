@@ -54,4 +54,15 @@ class PlaceTest {
         assertThat(PlaceType.fromKey("castle")).isEmpty();
         assertThat(PlaceId.parse(new PlaceId(PlaceId.newId().value()).toString())).isNotNull();
     }
+
+    @Test
+    void canLieInAnotherPlace() {
+        final PlaceId county = PlaceId.newId();
+
+        assertThat(
+                        Place.create("Dorf", PlaceType.VILLAGE, null, null)
+                                .enclosedIn(county)
+                                .enclosedBy())
+                .isEqualTo(county);
+    }
 }
