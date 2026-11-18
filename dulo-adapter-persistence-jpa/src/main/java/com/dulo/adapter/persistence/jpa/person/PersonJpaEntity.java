@@ -39,6 +39,9 @@ class PersonJpaEntity {
     @Column(name = "sort_name", nullable = false, length = 210)
     private @Nullable String sortName;
 
+    @Column(name = "surname_sort_name", nullable = false, length = 210)
+    private @Nullable String surnameSortName;
+
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "person_name", joinColumns = @JoinColumn(name = "person_id"))
     @OrderColumn(name = "position")
@@ -76,6 +79,10 @@ class PersonJpaEntity {
 
     void setSortName(final String sortName) {
         this.sortName = sortName;
+    }
+
+    void setSurnameSortName(final String surnameSortName) {
+        this.surnameSortName = surnameSortName;
     }
 
     List<PersonNameRow> getNames() {

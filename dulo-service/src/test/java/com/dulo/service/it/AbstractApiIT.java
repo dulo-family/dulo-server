@@ -1077,6 +1077,14 @@ abstract class AbstractApiIT {
                 .containsExactly("Anna", "Anna", "Hans");
         assertThat(
                         JSON.readTree(
+                                        this.get("/api/v1/people?sort=surname&q=" + token, admin)
+                                                .body())
+                                .path("items")
+                                .findValuesAsString("given"))
+                .containsExactly("Hans", "Anna", "Anna");
+        assertThat(this.get("/api/v1/people?sort=age", admin).statusCode()).isEqualTo(400);
+        assertThat(
+                        JSON.readTree(
                                         this.get("/api/v1/people?q=M%C3%9CLLER" + token, admin)
                                                 .body())
                                 .path("items"))
@@ -1137,6 +1145,199 @@ abstract class AbstractApiIT {
                                                 .body())
                                 .path("items"))
                 .hasSize(3);
+    }
+
+    @Test
+    void familiesAndEventsLifecycle() throws Exception {
+        this.completeSetupIfPending();
+        final String admin = this.signInAsAdmin("it-families-admin");
+        this.enableFeatures(admin, "people", "places", "families", "events", "audit-log");
+        final String mother =
+                this.createId(admin, "/api/v1/people", "{\"names\": [], \"sex\": \"female\"}");
+        final String child =
+                this.createId(admin, "/api/v1/people", "{\"names\": [], \"sex\": \"male\"}");
+        final String church =
+                this.createId(
+                        admin,
+                        "/api/v1/places",
+                        "{\"name\": \"St. Anna\", \"type\": \"building\"}");
+        final String family =
+                this.createId(
+                        admin,
+                        "/api/v1/families",
+                        "{\"partners\": [\""
+                                + mother
+                                + "\"], \"relationshipType\": \"married\", \"children\": [{\"person\": \""
+                                + child
+                                + "\", \"relation\": \"birth\"}]}");
+        final HttpResponse<String> created =
+                this.call(
+                        "POST",
+                        "/api/v1/events",
+                        admin,
+                        "{\"type\": \"birth\", \"date\": {\"modifier\": \"about\", \"start\": {\"year\": 1890,"
+                                + " \"month\": 5}, \"text\": \"abt. May 1890\"}, \"place\": \""
+                                + church
+                                + "\", \"family\": \""
+                                + family
+                                + "\", \"participants\": [{\"person\": \""
+                                + child
+                                + "\", \"role\": \"principal\"}, {\"person\": \""
+                                + mother
+                                + "\", \"role\": \"other\"}]}");
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        final JsonNode birth = JSON.readTree(created.body());
+        final String birthPath = "/api/v1/events/" + birth.path("id").asString();
+        assertThat(birth.path("date").path("start").path("month").asInt()).isEqualTo(5);
+        assertThat(birth.path("date").path("start").path("day").isNull()).isTrue();
+        assertThat(birth.path("date").path("text").asString()).isEqualTo("abt. May 1890");
+
+        // Dates that are only text, invalid dates and unknown people.
+        assertThat(
+                        this.call(
+                                        "POST",
+                                        "/api/v1/events",
+                                        admin,
+                                        "{\"type\": \"custom\", \"customType\": \"Harvest\", \"date\":"
+                                                + " {\"modifier\": \"exact\", \"text\": \"after the flood\"},"
+                                                + " \"participants\": []}")
+                                .statusCode())
+                .isEqualTo(201);
+        for (final String invalid :
+                List.of(
+                        "{\"type\": \"birth\", \"date\": {\"modifier\": \"exact\", \"start\": {\"year\": 1890,"
+                                + " \"month\": 2, \"day\": 30}}, \"participants\": []}",
+                        "{\"type\": \"birth\", \"participants\": [{\"person\": \""
+                                + UUID.randomUUID()
+                                + "\", \"role\": \"principal\"}]}",
+                        "{\"type\": \"custom\", \"participants\": []}")) {
+            final HttpResponse<String> response =
+                    this.call("POST", "/api/v1/events", admin, invalid);
+            assertThat(response.statusCode()).as(invalid).isEqualTo(400);
+            assertThat(problemType(response)).isEqualTo("urn:dulo:problem:validation");
+        }
+
+        // Lists, filtered.
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/events?person=" + child, admin).body())
+                                .path("items")
+                                .findValuesAsString("id"))
+                .containsExactly(birth.path("id").asString());
+        assertThat(
+                        JSON.readTree(
+                                        this.get("/api/v1/events?type=birth&place=" + church, admin)
+                                                .body())
+                                .path("items"))
+                .hasSize(1);
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/families?member=" + child, admin).body())
+                                .path("items")
+                                .findValuesAsString("relationshipType"))
+                .containsExactly("married");
+
+        // Replacing the date with a range.
+        final HttpResponse<String> range =
+                this.call(
+                        "PUT",
+                        birthPath,
+                        admin,
+                        "{\"type\": \"birth\", \"date\": {\"modifier\": \"between\", \"start\": {\"year\":"
+                                + " 1890}, \"end\": {\"year\": 1891}}, \"place\": \""
+                                + church
+                                + "\", \"family\": \""
+                                + family
+                                + "\", \"participants\": [{\"person\": \""
+                                + child
+                                + "\", \"role\": \"principal\"}, {\"person\": \""
+                                + mother
+                                + "\", \"role\": \"other\"}]}",
+                        "If-Match",
+                        "\"0\"");
+        assertThat(range.statusCode()).as(range.body()).isEqualTo(200);
+        assertThat(JSON.readTree(range.body()).path("date").path("end").path("year").asInt())
+                .isEqualTo(1891);
+
+        // Deleting the mother removes her from the family and the birth.
+        final HttpResponse<String> linked =
+                this.call("DELETE", "/api/v1/people/" + mother, admin, null, "If-Match", "\"0\"");
+        assertThat(linked.statusCode()).isEqualTo(409);
+        assertThat(JSON.readTree(linked.body()).path("links").findValuesAsString("field"))
+                .containsExactly("partners", "participants");
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/people/" + mother + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(204);
+        assertThat(
+                        JSON.readTree(this.get("/api/v1/families/" + family, admin).body())
+                                .path("partners"))
+                .isEmpty();
+        assertThat(
+                        JSON.readTree(this.get(birthPath, admin).body())
+                                .path("participants")
+                                .findValuesAsString("person"))
+                .containsExactly(child);
+
+        // Deleting the family and the church leaves the birth without them.
+        final String familyETag =
+                this.get("/api/v1/families/" + family, admin)
+                        .headers()
+                        .firstValue("ETag")
+                        .orElseThrow();
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/families/" + family,
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        familyETag)
+                                .statusCode())
+                .isEqualTo(409);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/families/" + family + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        familyETag)
+                                .statusCode())
+                .isEqualTo(204);
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        "/api/v1/places/" + church + "?confirmed=true",
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        "\"0\"")
+                                .statusCode())
+                .isEqualTo(204);
+        final HttpResponse<String> orphan = this.get(birthPath, admin);
+        assertThat(JSON.readTree(orphan.body()).path("family").isNull()).isTrue();
+        assertThat(JSON.readTree(orphan.body()).path("place").isNull()).isTrue();
+
+        // Events need no confirmation, and their history outlives them.
+        assertThat(
+                        this.call(
+                                        "DELETE",
+                                        birthPath,
+                                        admin,
+                                        null,
+                                        "If-Match",
+                                        orphan.headers().firstValue("ETag").orElseThrow())
+                                .statusCode())
+                .isEqualTo(204);
+        assertThat(
+                        JSON.readTree(this.get(birthPath + "/history", admin).body())
+                                .findValuesAsString("kind"))
+                .containsExactly("created", "changed", "changed", "changed", "changed", "deleted");
     }
 
     @Test
@@ -1289,6 +1490,14 @@ abstract class AbstractApiIT {
     /** Signs in a user whom the identity provider puts in the administrators' group. */
     private String signInAsAdmin(final String username) throws Exception {
         return this.client().signIn(username, "{\"groups\": [\"family-admins\"]}").accessToken();
+    }
+
+    /** Creates a record and returns its id. */
+    private String createId(final String token, final String path, final String json)
+            throws Exception {
+        final HttpResponse<String> created = this.call("POST", path, token, json);
+        assertThat(created.statusCode()).as(created.body()).isEqualTo(201);
+        return JSON.readTree(created.body()).path("id").asString();
     }
 
     /** Switches exactly these features on, as an administrator. */

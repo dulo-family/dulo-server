@@ -59,7 +59,7 @@ public interface ManagePlacesUseCase {
      * Deletes the place. Needs delete access.
      *
      * @param confirmed whether to delete it even if other records refer to it, removing those
-     *     references; places that lie in it then lie nowhere
+     *     references: places that lie in it then lie nowhere, and events there have no place
      * @throws com.dulo.domain.shared.NotFoundException if the place doesn't exist
      * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
      * @throws com.dulo.core.shared.port.in.HasLinksException if other records refer to it and the

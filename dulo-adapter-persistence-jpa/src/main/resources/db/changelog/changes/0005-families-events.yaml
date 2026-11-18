@@ -1,0 +1,259 @@
+databaseChangeLog:
+  # The primary name as "surname, given" in lower case, for lists sorted by surname. Empty for the
+  # people stored before; they get it when they are saved next.
+  #
+  # On SQLite, Liquibase adds a column by rebuilding the table, which leaves the foreign keys of
+  # other tables pointing at the dropped copy. SQLite's own ADD COLUMN keeps them, so SQLite gets a
+  # change set of its own.
+  - changeSet:
+      id: 0005-person-surname-sort-sqlite
+      author: dulo
+      dbms: sqlite
+      changes:
+        - sql:
+            sql: ALTER TABLE person ADD COLUMN surname_sort_name VARCHAR(210) NOT NULL DEFAULT ''
+  - changeSet:
+      id: 0005-person-surname-sort
+      author: dulo
+      dbms: "!sqlite"
+      changes:
+        - addColumn:
+            tableName: person
+            columns:
+              - column:
+                  name: surname_sort_name
+                  type: varchar(210)
+                  defaultValue: ""
+                  constraints:
+                    nullable: false
+  - changeSet:
+      id: 0005-families-events
+      author: dulo
+      changes:
+        - createIndex:
+            tableName: person
+            indexName: ix_person_surname_sort_name
+            columns:
+              - column:
+                  name: surname_sort_name
+              - column:
+                  name: id
+        - createTable:
+            tableName: family
+            columns:
+              - column:
+                  name: id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_family
+                    nullable: false
+              - column:
+                  name: relationship_type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: version
+                  type: bigint
+                  constraints:
+                    nullable: false
+        # References to people don't cascade: the core unlinks a person before deleting them.
+        - createTable:
+            tableName: family_partner
+            columns:
+              - column:
+                  name: family_id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_family_partner
+                    nullable: false
+                    foreignKeyName: fk_family_partner_family
+                    references: family(id)
+                    deleteCascade: true
+              - column:
+                  name: position
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_family_partner
+                    nullable: false
+              - column:
+                  name: person_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_family_partner_person
+                    references: person(id)
+        - createIndex:
+            tableName: family_partner
+            indexName: ix_family_partner_person
+            columns:
+              - column:
+                  name: person_id
+        - createTable:
+            tableName: family_child
+            columns:
+              - column:
+                  name: family_id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_family_child
+                    nullable: false
+                    foreignKeyName: fk_family_child_family
+                    references: family(id)
+                    deleteCascade: true
+              - column:
+                  name: position
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_family_child
+                    nullable: false
+              - column:
+                  name: person_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_family_child_person
+                    references: person(id)
+              - column:
+                  name: relation
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: family_child
+            indexName: ix_family_child_person
+            columns:
+              - column:
+                  name: person_id
+        - createTable:
+            tableName: event
+            columns:
+              - column:
+                  name: id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_event
+                    nullable: false
+              - column:
+                  name: type
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+              - column:
+                  name: custom_type
+                  type: varchar(100)
+              - column:
+                  name: date_modifier
+                  type: varchar(20)
+              - column:
+                  name: date_start_year
+                  type: int
+              - column:
+                  name: date_start_month
+                  type: int
+              - column:
+                  name: date_start_day
+                  type: int
+              - column:
+                  name: date_end_year
+                  type: int
+              - column:
+                  name: date_end_month
+                  type: int
+              - column:
+                  name: date_end_day
+                  type: int
+              - column:
+                  name: date_text
+                  type: varchar(100)
+              # The date as yyyymmdd, 99999999 without one: what events are sorted by.
+              - column:
+                  name: sort_key
+                  type: varchar(8)
+                  constraints:
+                    nullable: false
+              # No cascade: the core unlinks events before deleting a place or a family.
+              - column:
+                  name: place_id
+                  type: varchar(36)
+                  constraints:
+                    foreignKeyName: fk_event_place
+                    references: place(id)
+              - column:
+                  name: family_id
+                  type: varchar(36)
+                  constraints:
+                    foreignKeyName: fk_event_family
+                    references: family(id)
+              - column:
+                  name: description
+                  type: clob
+              - column:
+                  name: version
+                  type: bigint
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: event
+            indexName: ix_event_sort_key
+            columns:
+              - column:
+                  name: sort_key
+              - column:
+                  name: id
+        - createIndex:
+            tableName: event
+            indexName: ix_event_place
+            columns:
+              - column:
+                  name: place_id
+        - createIndex:
+            tableName: event
+            indexName: ix_event_family
+            columns:
+              - column:
+                  name: family_id
+        - createTable:
+            tableName: event_participant
+            columns:
+              - column:
+                  name: event_id
+                  type: varchar(36)
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_event_participant
+                    nullable: false
+                    foreignKeyName: fk_event_participant_event
+                    references: event(id)
+                    deleteCascade: true
+              - column:
+                  name: position
+                  type: int
+                  constraints:
+                    primaryKey: true
+                    primaryKeyName: pk_event_participant
+                    nullable: false
+              - column:
+                  name: person_id
+                  type: varchar(36)
+                  constraints:
+                    nullable: false
+                    foreignKeyName: fk_event_participant_person
+                    references: person(id)
+              - column:
+                  name: participant_role
+                  type: varchar(20)
+                  constraints:
+                    nullable: false
+        - createIndex:
+            tableName: event_participant
+            indexName: ix_event_participant_person
+            columns:
+              - column:
+                  name: person_id

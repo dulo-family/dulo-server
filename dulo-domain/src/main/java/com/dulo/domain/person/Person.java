@@ -42,17 +42,17 @@ public record Person(
     }
 
     /**
-     * The text people are sorted by: the primary name as "given, surname" in lower case. People
-     * without a name sort first, then people without a given name.
+     * The text people are sorted by: the primary name in lower case, as "given, surname" or
+     * "surname, given". People without a name sort first, then those without the first part.
      */
-    public String sortName() {
+    public String sortName(final PersonSort sort) {
         if (names.isEmpty()) {
             return "";
         }
         final PersonName primary = names.getFirst();
-        return (Objects.requireNonNullElse(primary.given(), "")
-                        + ", "
-                        + Objects.requireNonNullElse(primary.surname(), ""))
+        final String given = Objects.requireNonNullElse(primary.given(), "");
+        final String surname = Objects.requireNonNullElse(primary.surname(), "");
+        return (sort == PersonSort.GIVEN ? given + ", " + surname : surname + ", " + given)
                 .toLowerCase(Locale.ROOT);
     }
 }

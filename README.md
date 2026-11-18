@@ -103,12 +103,21 @@ works and how to test the API with Postman.
 
 ### Family tree records
 
-People and places are managed through `/api/v1/people` and `/api/v1/places`, behind the `people`
-and `places` features; families and events follow. A change replaces the whole record (`PUT` with
-the version from the `ETag` in `If-Match`). Deleting a record that others still refer to, such as
-a county with villages in it, fails with a `has-links` problem listing those references; repeat
-it with `?confirmed=true` to remove them too. Lists are read in pages (`?limit=&after=`) and can
-be searched (`?q=`).
+The family tree has four kinds of records, each behind its feature:
+
+- **people** (`/api/v1/people`): typed names (birth, married, …), sex and notes. Lists are sorted
+  by given name (`?sort=surname` for surname first) and can be searched (`?q=`).
+- **places** (`/api/v1/places`): a name, a type, coordinates, and the larger place it lies in.
+- **families** (`/api/v1/families`): up to two partners and their children.
+- **events** (`/api/v1/events`): births, marriages, burials and more, with a date as records give
+  it (exact, about, before, after, between or estimated, to the year, month or day), a place, a
+  family and the people who took part. Lists are sorted by date.
+
+A change replaces the whole record (`PUT` with the version from the `ETag` in `If-Match`).
+Deleting a record that others still refer to, such as a person who is a partner in a family,
+fails with a `has-links` problem listing those references; repeat it with `?confirmed=true` to
+remove them too. Lists are read in pages (`?limit=&after=`). Every record has its history at
+`/{id}/history`.
 
 ### Audit history
 

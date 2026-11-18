@@ -28,6 +28,12 @@
     "description" : "The people of the tree and their names. Needs the people feature: view to read, create, edit and delete to change.",
     "name" : "People"
   }, {
+    "description" : "Births, marriages, burials and everything else that happened. Needs the events feature: view to read, create, edit and delete to change.",
+    "name" : "Events"
+  }, {
+    "description" : "Partners and their children. Needs the families feature: view to read, create, edit and delete to change.",
+    "name" : "Families"
+  }, {
     "description" : "The audit history: every change to every record, with the values before and after. Needs view access to the audit-log feature; changes to the tree settings, roles and users also need view access to administration.",
     "name" : "Audit"
   }, {
@@ -701,6 +707,961 @@
         "tags" : [ "Audit" ]
       }
     },
+    "/api/v1/events" : {
+      "get" : {
+        "description" : "Sorted by date, the start of a range; undated events last. In pages.",
+        "operationId" : "events",
+        "parameters" : [ {
+          "description" : "Only events this person took part in.",
+          "in" : "query",
+          "name" : "person",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Only events at this place.",
+          "in" : "query",
+          "name" : "place",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Only events of this family.",
+          "in" : "query",
+          "name" : "family",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Only events of this type: baptism, birth, burial, cremation, custom, death, divorce, education, emigration, engagement, immigration, marriage, military, occupation or residence.",
+          "in" : "query",
+          "name" : "type",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "The `next` cursor of the previous page; leave it out for the first page.",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Page size, 1 to 200.",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseEvent"
+                }
+              }
+            },
+            "description" : "One page of events"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "List events",
+        "tags" : [ "Events" ]
+      },
+      "post" : {
+        "description" : "The participants, the place and the family must exist.",
+        "operationId" : "createEvent",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EventRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Event"
+                }
+              }
+            },
+            "description" : "The new event",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the event",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              },
+              "Location" : {
+                "description" : "Path of the event",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Create an event",
+        "tags" : [ "Events" ]
+      }
+    },
+    "/api/v1/events/{id}" : {
+      "delete" : {
+        "description" : "Nothing refers to events, so a deletion needs no confirmation.",
+        "operationId" : "deleteEvent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such event. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Delete an event",
+        "tags" : [ "Events" ]
+      },
+      "get" : {
+        "operationId" : "event",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Event"
+                }
+              }
+            },
+            "description" : "The event",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the event",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such event. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get an event",
+        "tags" : [ "Events" ]
+      },
+      "put" : {
+        "description" : "Replaces everything about the event: values left out are removed. The participants, the place and the family must exist.",
+        "operationId" : "replaceEvent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/EventRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Event"
+                }
+              }
+            },
+            "description" : "The changed event",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the event",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such event. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Replace an event",
+        "tags" : [ "Events" ]
+      }
+    },
+    "/api/v1/events/{id}/history" : {
+      "get" : {
+        "description" : "Every change to the event, oldest first, also after it was deleted.",
+        "operationId" : "eventHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ChangeEvent"
+                  }
+                }
+              }
+            },
+            "description" : "The changes"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event never existed. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get an event's history",
+        "tags" : [ "Events" ]
+      }
+    },
+    "/api/v1/families" : {
+      "get" : {
+        "description" : "In the order they were created, to the millisecond, in pages.",
+        "operationId" : "families",
+        "parameters" : [ {
+          "description" : "Only families with this person as a partner or child.",
+          "in" : "query",
+          "name" : "member",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "The `next` cursor of the previous page; leave it out for the first page.",
+          "in" : "query",
+          "name" : "after",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Page size, 1 to 200.",
+          "in" : "query",
+          "name" : "limit",
+          "required" : false,
+          "schema" : {
+            "type" : "integer",
+            "format" : "int32",
+            "default" : 50
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/PageResponseFamily"
+                }
+              }
+            },
+            "description" : "One page of families"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "List families",
+        "tags" : [ "Families" ]
+      },
+      "post" : {
+        "description" : "The partners and children must exist.",
+        "operationId" : "createFamily",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FamilyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Family"
+                }
+              }
+            },
+            "description" : "The new family",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the family",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              },
+              "Location" : {
+                "description" : "Path of the family",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Create a family",
+        "tags" : [ "Families" ]
+      }
+    },
+    "/api/v1/families/{id}" : {
+      "delete" : {
+        "description" : "The family's people stay. Events of the family make the deletion fail with 409, which lists them. Send `confirmed=true` to delete it anyway: those events then belong to no family.",
+        "operationId" : "deleteFamily",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Delete it even if other records refer to it.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "Deleted"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such family. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Other records refer to the family and the deletion isn't confirmed. The problem type is `urn:dulo:problem:has-links`. Its `links` member lists the references a confirmed deletion removes."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Delete a family",
+        "tags" : [ "Families" ]
+      },
+      "get" : {
+        "operationId" : "family",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Family"
+                }
+              }
+            },
+            "description" : "The family",
+            "headers" : {
+              "ETag" : {
+                "description" : "Version of the family",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such family. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a family",
+        "tags" : [ "Families" ]
+      },
+      "put" : {
+        "description" : "Replaces everything about the family. The partners and children must exist.",
+        "operationId" : "replaceFamily",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The ETag of the resource as last read. A change to an outdated copy fails with 412.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : true,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/FamilyRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Family"
+                }
+              }
+            },
+            "description" : "The changed family",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the family",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No such family. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Replace a family",
+        "tags" : [ "Families" ]
+      }
+    },
+    "/api/v1/families/{id}/history" : {
+      "get" : {
+        "description" : "Every change to the family, oldest first, also after it was deleted.",
+        "operationId" : "familyHistory",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/ChangeEvent"
+                  }
+                }
+              }
+            },
+            "description" : "The changes"
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family never existed. The problem type is `urn:dulo:problem:not-found`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get a family's history",
+        "tags" : [ "Families" ]
+      }
+    },
     "/api/v1/identity-providers" : {
       "get" : {
         "description" : "Public, for the sign-in page. Sorted by id. When an authorization request names one with the `idp` parameter, or only one is configured, the server skips the sign-in page and goes straight to it.",
@@ -759,7 +1720,7 @@
     },
     "/api/v1/people" : {
       "get" : {
-        "description" : "Sorted by the primary name: given name, then surname; people without a name come first. In pages.",
+        "description" : "Sorted by the primary name, by default given name, then surname; people without a name come first. In pages.",
         "operationId" : "people",
         "parameters" : [ {
           "description" : "Only people with a name that contains this text, ignoring case. All names and all their parts count.",
@@ -768,6 +1729,15 @@
           "required" : false,
           "schema" : {
             "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "`given`: given name, then surname. `surname`: surname, then given name. A cursor only reads on in the order it was made for.",
+          "in" : "query",
+          "name" : "sort",
+          "required" : false,
+          "schema" : {
+            "type" : "string",
+            "enum" : [ "given", "surname" ]
           }
         }, {
           "description" : "The `next` cursor of the previous page; leave it out for the first page.",
@@ -1370,7 +2340,7 @@
     },
     "/api/v1/places/{id}" : {
       "delete" : {
-        "description" : "Places that lie in it make the deletion fail with 409, which lists them. Send `confirmed=true` to delete it anyway: those places then lie nowhere.",
+        "description" : "Places that lie in it and events there make the deletion fail with 409, which lists them. Send `confirmed=true` to delete it anyway: those places then lie nowhere, and those events have no place.",
         "operationId" : "deletePlace",
         "parameters" : [ {
           "in" : "path",
@@ -2174,6 +3144,20 @@
         },
         "required" : [ "actor", "at", "changes", "correlationId", "entityId", "entityType", "entityVersion", "id", "kind", "removedLinks" ]
       },
+      "Child" : {
+        "type" : "object",
+        "properties" : {
+          "person" : {
+            "type" : "string",
+            "description" : "The child's person id."
+          },
+          "relation" : {
+            "type" : "string",
+            "enum" : [ "adopted", "birth", "foster", "step" ]
+          }
+        },
+        "required" : [ "person", "relation" ]
+      },
       "Coordinates" : {
         "type" : "object",
         "properties" : {
@@ -2191,6 +3175,146 @@
           }
         },
         "required" : [ "latitude", "longitude" ]
+      },
+      "Event" : {
+        "type" : "object",
+        "properties" : {
+          "customType" : {
+            "type" : [ "string", "null" ]
+          },
+          "date" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/GenealogicalDate"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "family" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the family it belongs to."
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "participants" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Participant"
+            }
+          },
+          "place" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the place where it happened."
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "baptism, birth, burial, cremation, custom, death, divorce, education, emigration, engagement, immigration, marriage, military, occupation or residence."
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Also the ETag; send it in If-Match to change the event."
+          }
+        },
+        "required" : [ "id", "participants", "type", "version" ]
+      },
+      "EventRequest" : {
+        "type" : "object",
+        "properties" : {
+          "customType" : {
+            "type" : [ "string", "null" ],
+            "description" : "What happened, for the type `custom` only."
+          },
+          "date" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/GenealogicalDate"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "description" : {
+            "type" : [ "string", "null" ]
+          },
+          "family" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the family it belongs to, such as for a marriage."
+          },
+          "participants" : {
+            "type" : "array",
+            "description" : "The people who took part, each once; may be empty.",
+            "items" : {
+              "$ref" : "#/components/schemas/Participant"
+            }
+          },
+          "place" : {
+            "type" : [ "string", "null" ],
+            "description" : "The id of the place where it happened."
+          },
+          "type" : {
+            "type" : "string",
+            "description" : "baptism, birth, burial, cremation, custom, death, divorce, education, emigration, engagement, immigration, marriage, military, occupation or residence.",
+            "example" : "birth"
+          }
+        },
+        "required" : [ "participants", "type" ]
+      },
+      "Family" : {
+        "type" : "object",
+        "properties" : {
+          "children" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Child"
+            }
+          },
+          "id" : {
+            "type" : "string"
+          },
+          "partners" : {
+            "type" : "array",
+            "description" : "The partners' person ids.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "relationshipType" : {
+            "type" : "string",
+            "enum" : [ "civil-union", "married", "partners", "unknown" ]
+          },
+          "version" : {
+            "type" : "integer",
+            "format" : "int64",
+            "description" : "Also the ETag; send it in If-Match to change the family."
+          }
+        },
+        "required" : [ "children", "id", "partners", "relationshipType", "version" ]
+      },
+      "FamilyRequest" : {
+        "type" : "object",
+        "properties" : {
+          "children" : {
+            "type" : "array",
+            "description" : "In order of birth, as far as known; may be empty.",
+            "items" : {
+              "$ref" : "#/components/schemas/Child"
+            }
+          },
+          "partners" : {
+            "type" : "array",
+            "description" : "Up to two person ids; may be empty.",
+            "items" : {
+              "type" : "string"
+            }
+          },
+          "relationshipType" : {
+            "type" : "string",
+            "enum" : [ "civil-union", "married", "partners", "unknown" ]
+          }
+        },
+        "required" : [ "children", "partners", "relationshipType" ]
       },
       "FeatureAccess" : {
         "type" : "object",
@@ -2241,6 +3365,36 @@
           }
         },
         "required" : [ "field" ]
+      },
+      "GenealogicalDate" : {
+        "type" : "object",
+        "properties" : {
+          "end" : {
+            "description" : "For `between` only; not before the start.",
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PartialDate"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "modifier" : {
+            "type" : "string",
+            "enum" : [ "about", "after", "before", "between", "estimated", "exact" ]
+          },
+          "start" : {
+            "oneOf" : [ {
+              "$ref" : "#/components/schemas/PartialDate"
+            }, {
+              "type" : "null"
+            } ]
+          },
+          "text" : {
+            "type" : [ "string", "null" ],
+            "description" : "The date as the source gives it.",
+            "example" : "abt. May 1890"
+          }
+        },
+        "required" : [ "modifier" ]
       },
       "IdentityProviderResponse" : {
         "type" : "object",
@@ -2336,6 +3490,38 @@
         },
         "required" : [ "items" ]
       },
+      "PageResponseEvent" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Event"
+            }
+          },
+          "next" : {
+            "type" : [ "string", "null" ],
+            "description" : "Opaque cursor of the next page: pass it as `after`. Null on the last page."
+          }
+        },
+        "required" : [ "items" ]
+      },
+      "PageResponseFamily" : {
+        "type" : "object",
+        "properties" : {
+          "items" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/Family"
+            }
+          },
+          "next" : {
+            "type" : [ "string", "null" ],
+            "description" : "Opaque cursor of the next page: pass it as `after`. Null on the last page."
+          }
+        },
+        "required" : [ "items" ]
+      },
       "PageResponsePerson" : {
         "type" : "object",
         "properties" : {
@@ -2367,6 +3553,43 @@
           }
         },
         "required" : [ "items" ]
+      },
+      "PartialDate" : {
+        "type" : "object",
+        "properties" : {
+          "day" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "Needs a month.",
+            "example" : 17
+          },
+          "month" : {
+            "type" : [ "integer", "null" ],
+            "format" : "int32",
+            "description" : "1 to 12; absent when only the year is known.",
+            "example" : 5
+          },
+          "year" : {
+            "type" : "integer",
+            "format" : "int32",
+            "example" : 1890
+          }
+        },
+        "required" : [ "year" ]
+      },
+      "Participant" : {
+        "type" : "object",
+        "properties" : {
+          "person" : {
+            "type" : "string",
+            "description" : "The person's id."
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "godparent", "officiant", "other", "principal", "witness" ]
+          }
+        },
+        "required" : [ "person", "role" ]
       },
       "Person" : {
         "type" : "object",

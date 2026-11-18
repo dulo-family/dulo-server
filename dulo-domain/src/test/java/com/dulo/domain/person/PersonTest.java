@@ -34,22 +34,24 @@ class PersonTest {
                         Sex.FEMALE,
                         " ");
 
-        assertThat(anna.sortName()).isEqualTo("anna, schmidt");
+        assertThat(anna.sortName(PersonSort.GIVEN)).isEqualTo("anna, schmidt");
+        assertThat(anna.sortName(PersonSort.SURNAME)).isEqualTo("schmidt, anna");
         assertThat(anna.notes()).isNull();
-        assertThat(Person.create(List.of(), Sex.UNKNOWN, null).sortName()).isEmpty();
+        assertThat(Person.create(List.of(), Sex.UNKNOWN, null).sortName(PersonSort.SURNAME))
+                .isEmpty();
         assertThat(
                         Person.create(
                                         List.of(PersonName.of(NameType.BIRTH, "Hans", null)),
                                         Sex.MALE,
                                         null)
-                                .sortName())
+                                .sortName(PersonSort.GIVEN))
                 .isEqualTo("hans, ");
         assertThat(
                         Person.create(
                                         List.of(PersonName.of(NameType.BIRTH, null, "Weber")),
                                         Sex.MALE,
                                         null)
-                                .sortName())
+                                .sortName(PersonSort.GIVEN))
                 .isEqualTo(", weber");
     }
 
@@ -72,6 +74,7 @@ class PersonTest {
         assertThat(NameType.fromKey("Also-Known-As")).contains(NameType.ALSO_KNOWN_AS);
         assertThat(Sex.fromKey("female")).contains(Sex.FEMALE);
         assertThat(Sex.fromKey("f")).isEmpty();
+        assertThat(PersonSort.fromKey("Surname")).contains(PersonSort.SURNAME);
         final PersonId id = PersonId.newId();
         assertThat(PersonId.parse(id.toString())).isEqualTo(id);
     }

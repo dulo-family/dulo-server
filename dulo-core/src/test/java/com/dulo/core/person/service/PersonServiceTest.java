@@ -3,33 +3,37 @@ package com.dulo.core.person.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-import com.dulo.core.access.service.AccessPolicy;
+import com.dulo.core.event.port.in.ManageEventsUseCase.EventContent;
+import com.dulo.core.family.port.in.ManageFamiliesUseCase.FamilyContent;
 import com.dulo.core.person.port.in.ManagePeopleUseCase.PersonContent;
-import com.dulo.core.testing.DirectUnitOfWork;
-import com.dulo.core.testing.InMemoryChangeEvents;
-import com.dulo.core.testing.InMemoryPeople;
-import com.dulo.core.testing.InMemoryRoles;
-import com.dulo.core.testing.InMemoryTrees;
-import com.dulo.core.testing.InMemoryUsers;
-import com.dulo.core.testing.Users;
+import com.dulo.core.shared.port.in.HasLinksException;
+import com.dulo.core.testing.Genealogy;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.access.DefaultRoles;
 import com.dulo.domain.audit.ChangeEvent;
 import com.dulo.domain.audit.ChangeKind;
+import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.audit.FieldChange;
-import com.dulo.domain.feature.Feature;
-import com.dulo.domain.feature.FeatureOverrides;
+import com.dulo.domain.audit.Link;
+import com.dulo.domain.event.Event;
+import com.dulo.domain.event.EventType;
+import com.dulo.domain.event.Participant;
+import com.dulo.domain.event.ParticipantRole;
+import com.dulo.domain.family.Child;
+import com.dulo.domain.family.ChildRelation;
+import com.dulo.domain.family.Family;
+import com.dulo.domain.family.RelationshipType;
 import com.dulo.domain.person.NameType;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
+import com.dulo.domain.person.PersonSort;
 import com.dulo.domain.person.Sex;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.CursorPage;
 import com.dulo.domain.shared.NotFoundException;
 import com.dulo.domain.tree.TreeSettings;
 import com.dulo.domain.user.UserId;
-import com.dulo.domain.user.UserStatus;
 
 import org.junit.jupiter.api.Test;
 
@@ -39,24 +43,9 @@ import java.util.Set;
 
 class PersonServiceTest {
 
-    private final InMemoryUsers users = new InMemoryUsers();
-    private final InMemoryPeople people = new InMemoryPeople();
-    private final InMemoryChangeEvents events = new InMemoryChangeEvents();
-    private final InMemoryTrees trees =
-            new InMemoryTrees(TreeSettings.create("Smiths", null, Set.of(Feature.PEOPLE)));
-    private final PersonService service =
-            new PersonService(
-                    this.people,
-                    this.events,
-                    new AccessPolicy(
-                            this.users,
-                            new InMemoryRoles(DefaultRoles.all()),
-                            this.trees,
-                            FeatureOverrides::none),
-                    this.events.recorder(),
-                    new DirectUnitOfWork());
-    private final UserId editor =
-            this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.EDITOR)).id();
+    private final Genealogy tree = new Genealogy();
+    private final PersonService service = this.tree.personService();
+    private final UserId editor = this.tree.user(DefaultRoles.EDITOR);
 
     private static PersonContent named(final String given, final String surname) {
         return new PersonContent(
@@ -94,7 +83,7 @@ class PersonServiceTest {
                                 null));
         this.service.deletePerson(this.editor, anna.id(), married.version(), false);
 
-        assertThat(this.people.find(anna.id())).isEmpty();
+        assertThat(this.tree.people().find(anna.id())).isEmpty();
         final List<ChangeEvent> history = this.service.personHistory(this.editor, anna.id());
         assertThat(history)
                 .extracting(ChangeEvent::kind)
@@ -131,24 +120,27 @@ class PersonServiceTest {
                         Sex.FEMALE,
                         null));
 
-        final CursorPage<Person> first = this.service.people(this.editor, null, null, 3);
-        final CursorPage<Person> second = this.service.people(this.editor, null, first.next(), 3);
+        final CursorPage<Person> first =
+                this.service.people(this.editor, null, PersonSort.GIVEN, null, 3);
+        final CursorPage<Person> second =
+                this.service.people(this.editor, null, PersonSort.GIVEN, first.next(), 3);
 
         assertThat(first.items())
-                .extracting(Person::sortName)
+                .extracting(p -> p.sortName(PersonSort.GIVEN))
                 .containsExactly("anna, müller", "eva, weber", "hans, weber");
-        assertThat(second.items()).extracting(Person::sortName).containsExactly("karl, müller");
+        assertThat(second.items())
+                .extracting(p -> p.sortName(PersonSort.GIVEN))
+                .containsExactly("karl, müller");
         assertThat(second.next()).isNull();
-        assertThat(this.service.people(this.editor, "FISCH", null, 50).items())
-                .extracting(Person::sortName)
+        assertThat(this.service.people(this.editor, "FISCH", PersonSort.GIVEN, null, 50).items())
+                .extracting(p -> p.sortName(PersonSort.GIVEN))
                 .containsExactly("eva, weber");
     }
 
     @Test
     void checksVersionsAccessAndExistence() {
         final Person hans = this.service.createPerson(this.editor, named("Hans", "Weber"));
-        final UserId viewer =
-                this.users.save(Users.user(UserStatus.ACTIVE, DefaultRoles.VIEWER)).id();
+        final UserId viewer = this.tree.user(DefaultRoles.VIEWER);
 
         assertThatThrownBy(() -> this.service.createPerson(viewer, named("No", "One")))
                 .isInstanceOf(AccessDeniedException.class);
@@ -163,25 +155,106 @@ class PersonServiceTest {
                 .isInstanceOf(NotFoundException.class);
         assertThatThrownBy(() -> this.service.personHistory(this.editor, PersonId.newId()))
                 .isInstanceOf(NotFoundException.class);
-        assertThatThrownBy(() -> this.service.people(this.editor, null, null, 0))
+        assertThatThrownBy(() -> this.service.people(this.editor, null, PersonSort.GIVEN, null, 0))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
     @Test
     void aDisabledFeatureIsDeniedToEveryone() {
-        this.trees.save(
-                new TreeSettings(
-                        this.trees.find().orElseThrow().id(),
-                        "Smiths",
-                        null,
-                        Set.of(),
-                        this.trees.find().orElseThrow().version()));
+        this.tree
+                .trees()
+                .save(
+                        new TreeSettings(
+                                this.tree.trees().find().orElseThrow().id(),
+                                "Smiths",
+                                null,
+                                Set.of(),
+                                this.tree.trees().find().orElseThrow().version()));
 
-        assertThatThrownBy(() -> this.service.people(this.editor, null, null, 50))
+        assertThatThrownBy(() -> this.service.people(this.editor, null, PersonSort.GIVEN, null, 50))
                 .isInstanceOfSatisfying(
                         AccessDeniedException.class,
                         e ->
                                 assertThat(e.reason())
                                         .isEqualTo(AccessDeniedException.Reason.FEATURE_DISABLED));
+    }
+
+    @Test
+    void sortsBySurnameOnRequest() {
+        this.service.createPerson(this.editor, named("Hans", "Weber"));
+        this.service.createPerson(this.editor, named("Anna", "Zett"));
+        this.service.createPerson(this.editor, named("Karl", "Abel"));
+
+        final CursorPage<Person> first =
+                this.service.people(this.editor, null, PersonSort.SURNAME, null, 2);
+
+        assertThat(first.items())
+                .extracting(p -> p.sortName(PersonSort.SURNAME))
+                .containsExactly("abel, karl", "weber, hans");
+        assertThat(
+                        this.service
+                                .people(this.editor, null, PersonSort.SURNAME, first.next(), 2)
+                                .items())
+                .extracting(p -> p.sortName(PersonSort.SURNAME))
+                .containsExactly("zett, anna");
+    }
+
+    @Test
+    void deletingAPersonInFamiliesAndEventsNeedsConfirmation() {
+        final Person mother = this.service.createPerson(this.editor, named("Anna", "Weber"));
+        final Person child = this.service.createPerson(this.editor, named("Karl", "Weber"));
+        final Family family =
+                this.tree
+                        .familyService()
+                        .createFamily(
+                                this.editor,
+                                new FamilyContent(
+                                        List.of(mother.id()),
+                                        RelationshipType.UNKNOWN,
+                                        List.of(new Child(child.id(), ChildRelation.BIRTH))));
+        final Event birth =
+                this.tree
+                        .eventService()
+                        .createEvent(
+                                this.editor,
+                                new EventContent(
+                                        EventType.BIRTH,
+                                        null,
+                                        null,
+                                        null,
+                                        family.id(),
+                                        null,
+                                        List.of(
+                                                new Participant(
+                                                        child.id(), ParticipantRole.PRINCIPAL),
+                                                new Participant(
+                                                        mother.id(), ParticipantRole.OTHER))));
+        final List<Link> links =
+                List.of(
+                        new Link(EntityType.FAMILY, family.id().toString(), "partners"),
+                        new Link(EntityType.EVENT, birth.id().toString(), "participants"));
+
+        assertThatThrownBy(() ->
+                        this.service.deletePerson(
+                                this.editor, mother.id(), mother.version(), false))
+                .isInstanceOfSatisfying(
+                        HasLinksException.class, e -> assertThat(e.links()).isEqualTo(links));
+        this.service.deletePerson(this.editor, mother.id(), mother.version(), true);
+
+        assertThat(this.tree.families().find(family.id()).orElseThrow().partners()).isEmpty();
+        assertThat(this.tree.events().find(birth.id()).orElseThrow().participants())
+                .extracting(Participant::person)
+                .containsExactly(child.id());
+        assertThat(this.service.personHistory(this.editor, mother.id()).getLast().removedLinks())
+                .isEqualTo(links);
+        // A child's link is to the family's children.
+        assertThatThrownBy(() ->
+                        this.service.deletePerson(this.editor, child.id(), child.version(), false))
+                .isInstanceOfSatisfying(
+                        HasLinksException.class,
+                        e ->
+                                assertThat(e.links())
+                                        .extracting(Link::field)
+                                        .containsExactly("children", "participants"));
     }
 }
