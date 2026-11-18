@@ -1,10 +1,12 @@
 package com.dulo.core.place.service;
 
-import com.dulo.core.audit.recording.RecordFields;
+import com.dulo.core.audit.recording.FieldReader;
+import com.dulo.core.audit.recording.RestorableFields;
 import com.dulo.domain.audit.EntityType;
 import com.dulo.domain.place.Coordinates;
 import com.dulo.domain.place.Place;
 import com.dulo.domain.place.PlaceId;
+import com.dulo.domain.place.PlaceType;
 
 import org.jspecify.annotations.Nullable;
 
@@ -12,7 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** Places in the audit history. */
-public final class PlaceFields implements RecordFields<Place> {
+public final class PlaceFields implements RestorableFields<Place> {
 
     public static final PlaceFields INSTANCE = new PlaceFields();
 
@@ -53,5 +55,23 @@ public final class PlaceFields implements RecordFields<Place> {
                                 "longitude", coordinates.longitude()));
         fields.put(ENCLOSED_BY, enclosedBy == null ? null : enclosedBy.toString());
         return fields;
+    }
+
+    @Override
+    public Place fromFields(final String id, final Map<String, Object> fields) {
+        final Map<?, ?> coordinates = FieldReader.optionalMap(fields, "coordinates");
+        final String enclosedBy = FieldReader.optionalText(fields, ENCLOSED_BY);
+        return new Place(
+                PlaceId.parse(id),
+                FieldReader.text(fields, "name"),
+                FieldReader.constant(
+                        FieldReader.text(fields, "type"), "place type", PlaceType::fromKey),
+                coordinates == null
+                        ? null
+                        : new Coordinates(
+                                FieldReader.number(coordinates, "latitude"),
+                                FieldReader.number(coordinates, "longitude")),
+                enclosedBy == null ? null : PlaceId.parse(enclosedBy),
+                0);
     }
 }

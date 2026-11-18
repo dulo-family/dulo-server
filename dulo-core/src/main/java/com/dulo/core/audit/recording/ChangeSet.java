@@ -89,6 +89,21 @@ public final class ChangeSet {
                 removedLinks);
     }
 
+    /**
+     * Records a record brought back to an earlier state. Records nothing if nothing changes.
+     *
+     * @param before the record before, or null if it was deleted
+     * @param after the stored record
+     */
+    public <T> void restored(
+            final RecordFields<T> fields, final @Nullable T before, final T after) {
+        final List<FieldChange> changes =
+                diff(before == null ? Map.of() : fields.fields(before), fields.fields(after));
+        if (!changes.isEmpty()) {
+            this.append(fields, after, ChangeKind.RESTORED, changes, List.of());
+        }
+    }
+
     private <T> void append(
             final RecordFields<T> fields,
             final T record,

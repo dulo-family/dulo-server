@@ -117,7 +117,8 @@ A change replaces the whole record (`PUT` with the version from the `ETag` in `I
 Deleting a record that others still refer to, such as a person who is a partner in a family,
 fails with a `has-links` problem listing those references; repeat it with `?confirmed=true` to
 remove them too. Lists are read in pages (`?limit=&after=`). Every record has its history at
-`/{id}/history`.
+`/{id}/history`, and `POST /{id}/restore` with `{"eventId": …}` brings it back to its state after
+one of those changes, also after a deletion, with the links the deletion removed.
 
 ### Audit history
 

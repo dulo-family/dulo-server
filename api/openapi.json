@@ -1187,6 +1187,133 @@
         "tags" : [ "Events" ]
       }
     },
+    "/api/v1/events/{id}/restore" : {
+      "post" : {
+        "description" : "Brings the event back to the state it had right after a change from its history, as a new change: also a deleted event. Links that can't come back, such as to records that are gone, make it fail with 409, which lists them; send `confirmed=true` to restore without them. Needs edit access, or create access for a deleted event.",
+        "operationId" : "restoreEvent",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The version you saw, from the ETag. Required while the event exists; leave it out for a deleted one.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Restore even if some links can't come back.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Event"
+                }
+              }
+            },
+            "description" : "The restored event",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the event",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event never existed, or the change isn't its. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Some links can't come back and the restore isn't confirmed. The problem type is `urn:dulo:problem:restore-conflict`. Its `links` member lists them: the other record and the field."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The event exists and If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Restore an event",
+        "tags" : [ "Events" ]
+      }
+    },
     "/api/v1/families" : {
       "get" : {
         "description" : "In the order they were created, to the millisecond, in pages.",
@@ -1659,6 +1786,133 @@
           "oauth2" : [ ]
         } ],
         "summary" : "Get a family's history",
+        "tags" : [ "Families" ]
+      }
+    },
+    "/api/v1/families/{id}/restore" : {
+      "post" : {
+        "description" : "Brings the family back to the state it had right after a change from its history, as a new change: also a deleted family. A deleted family gets back its events, where those don't belong to another family now. Links that can't come back, such as to records that are gone, make it fail with 409, which lists them; send `confirmed=true` to restore without them. Needs edit access, or create access for a deleted family.",
+        "operationId" : "restoreFamily",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The version you saw, from the ETag. Required while the family exists; leave it out for a deleted one.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Restore even if some links can't come back.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Family"
+                }
+              }
+            },
+            "description" : "The restored family",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the family",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family never existed, or the change isn't its. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Some links can't come back and the restore isn't confirmed. The problem type is `urn:dulo:problem:restore-conflict`. Its `links` member lists them: the other record and the field."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The family exists and If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Restore a family",
         "tags" : [ "Families" ]
       }
     },
@@ -2201,6 +2455,133 @@
         "tags" : [ "People" ]
       }
     },
+    "/api/v1/people/{id}/restore" : {
+      "post" : {
+        "description" : "Brings the person back to the state they had right after a change from their history, as a new change: also a deleted person. A deleted person comes back into the families and events their deletion removed them from, where those still exist and have room. Links that can't come back, such as to records that are gone, make it fail with 409, which lists them; send `confirmed=true` to restore without them. Needs edit access, or create access for a deleted person.",
+        "operationId" : "restorePerson",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The version you saw, from the ETag. Required while the person exists; leave it out for a deleted one.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Restore even if some links can't come back.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Person"
+                }
+              }
+            },
+            "description" : "The restored person",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the person",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person never existed, or the change isn't their. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Some links can't come back and the restore isn't confirmed. The problem type is `urn:dulo:problem:restore-conflict`. Its `links` member lists them: the other record and the field."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The person exists and If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Restore a person",
+        "tags" : [ "People" ]
+      }
+    },
     "/api/v1/places" : {
       "get" : {
         "description" : "Sorted by name, in pages.",
@@ -2673,6 +3054,133 @@
           "oauth2" : [ ]
         } ],
         "summary" : "Get a place's history",
+        "tags" : [ "Places" ]
+      }
+    },
+    "/api/v1/places/{id}/restore" : {
+      "post" : {
+        "description" : "Brings the place back to the state it had right after a change from its history, as a new change: also a deleted place. A deleted place gets back the places that lay in it and the events there, where those don't lie or happen elsewhere now. Links that can't come back, such as to records that are gone, make it fail with 409, which lists them; send `confirmed=true` to restore without them. Needs edit access, or create access for a deleted place.",
+        "operationId" : "restorePlace",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string"
+          }
+        }, {
+          "description" : "The version you saw, from the ETag. Required while the place exists; leave it out for a deleted one.",
+          "in" : "header",
+          "name" : "If-Match",
+          "required" : false,
+          "schema" : {
+            "type" : [ "string", "null" ]
+          }
+        }, {
+          "description" : "Restore even if some links can't come back.",
+          "in" : "query",
+          "name" : "confirmed",
+          "required" : false,
+          "schema" : {
+            "type" : "boolean",
+            "default" : false
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RestoreRequest"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Place"
+                }
+              }
+            },
+            "description" : "The restored place",
+            "headers" : {
+              "ETag" : {
+                "description" : "New version of the place",
+                "schema" : {
+                  "type" : "string"
+                },
+                "style" : "simple"
+              }
+            }
+          },
+          "400" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "An invalid id, body, cursor or limit. The problem type is `urn:dulo:problem:validation`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The caller lacks the access, or the feature is off. The problem type is `urn:dulo:problem:forbidden`, `urn:dulo:problem:feature-disabled`, or says why the account is not active."
+          },
+          "404" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place never existed, or the change isn't its. The problem type is `urn:dulo:problem:not-found`."
+          },
+          "409" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "Some links can't come back and the restore isn't confirmed. The problem type is `urn:dulo:problem:restore-conflict`. Its `links` member lists them: the other record and the field."
+          },
+          "412" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place changed since it was read. The problem type is `urn:dulo:problem:concurrent-modification`."
+          },
+          "428" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The place exists and If-Match is missing. The problem type is `urn:dulo:problem:precondition-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Restore a place",
         "tags" : [ "Places" ]
       }
     },
@@ -3751,6 +4259,16 @@
             "format" : "uri"
           }
         }
+      },
+      "RestoreRequest" : {
+        "type" : "object",
+        "properties" : {
+          "eventId" : {
+            "type" : "string",
+            "description" : "The id of a change from the record's history: the record gets the state it had right after it. Not a deletion."
+          }
+        },
+        "required" : [ "eventId" ]
       },
       "RoleChangeRequest" : {
         "type" : "object",

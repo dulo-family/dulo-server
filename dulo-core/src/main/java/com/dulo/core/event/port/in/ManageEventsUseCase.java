@@ -1,6 +1,7 @@
 package com.dulo.core.event.port.in;
 
 import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
 import com.dulo.domain.date.GenealogicalDate;
 import com.dulo.domain.event.Event;
 import com.dulo.domain.event.EventId;
@@ -64,6 +65,29 @@ public interface ManageEventsUseCase {
      * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
      */
     void deleteEvent(UserId caller, EventId id, long expectedVersion);
+
+    /**
+     * Brings the event back to its state right after one of its changes, as a new change. Needs
+     * edit access, or create access for a deleted event.
+     *
+     * @param eventId the change whose result to restore
+     * @param expectedVersion the version the caller saw; required while the event exists
+     * @param confirmed whether to restore even if some links can't come back, leaving them out
+     * @throws com.dulo.domain.shared.NotFoundException if the event never existed, or the change
+     *     isn't one of its
+     * @throws IllegalArgumentException if the change is a deletion
+     * @throws com.dulo.core.shared.port.in.VersionRequiredException if the event exists and no
+     *     version is given
+     * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
+     * @throws com.dulo.core.shared.port.in.RestoreConflictException if some links can't come back
+     *     and the restore is not confirmed
+     */
+    Event restoreEvent(
+            UserId caller,
+            EventId id,
+            ChangeEventId eventId,
+            @Nullable Long expectedVersion,
+            boolean confirmed);
 
     /**
      * Every change to the event, oldest first, also after it was deleted. Needs view access.

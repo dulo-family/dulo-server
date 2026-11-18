@@ -10,6 +10,7 @@ import org.jspecify.annotations.Nullable;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.stream.Stream;
 
 /**
  * Something that happened, such as a birth, a marriage or a burial.
@@ -100,6 +101,37 @@ public record Event(
                 description,
                 participants.stream().filter(p -> !p.person().equals(person)).toList(),
                 version);
+    }
+
+    /**
+     * The event with another participant, last.
+     *
+     * @throws IllegalArgumentException if the person takes part already, or the event has the most
+     *     participants
+     */
+    public Event withParticipant(final Participant participant) {
+        return new Event(
+                id,
+                type,
+                customType,
+                date,
+                place,
+                family,
+                description,
+                Stream.concat(participants.stream(), Stream.of(participant)).toList(),
+                version);
+    }
+
+    /** The event at the place. */
+    public Event atPlace(final PlaceId place) {
+        return new Event(
+                id, type, customType, date, place, family, description, participants, version);
+    }
+
+    /** The event, belonging to the family. */
+    public Event ofFamily(final FamilyId family) {
+        return new Event(
+                id, type, customType, date, place, family, description, participants, version);
     }
 
     /** The event, no longer at a place. */

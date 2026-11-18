@@ -1,6 +1,7 @@
 package com.dulo.core.person.port.in;
 
 import com.dulo.domain.audit.ChangeEvent;
+import com.dulo.domain.audit.ChangeEventId;
 import com.dulo.domain.person.Person;
 import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
@@ -66,6 +67,30 @@ public interface ManagePeopleUseCase {
      *     deletion is not confirmed
      */
     void deletePerson(UserId caller, PersonId id, long expectedVersion, boolean confirmed);
+
+    /**
+     * Brings the person back to their state right after one of their changes, as a new change. A
+     * deleted person comes back with the links their deletion removed, where the other records
+     * still exist and take them. Needs edit access, or create access for a deleted person.
+     *
+     * @param eventId the change whose result to restore
+     * @param expectedVersion the version the caller saw; required while the person exists
+     * @param confirmed whether to restore even if some links can't come back, leaving them out
+     * @throws com.dulo.domain.shared.NotFoundException if the person never existed, or the change
+     *     isn't one of their
+     * @throws IllegalArgumentException if the change is a deletion
+     * @throws com.dulo.core.shared.port.in.VersionRequiredException if the person exists and no
+     *     version is given
+     * @throws com.dulo.domain.shared.ConcurrentModificationException if the version is stale
+     * @throws com.dulo.core.shared.port.in.RestoreConflictException if some links can't come back
+     *     and the restore is not confirmed
+     */
+    Person restorePerson(
+            UserId caller,
+            PersonId id,
+            ChangeEventId eventId,
+            @Nullable Long expectedVersion,
+            boolean confirmed);
 
     /**
      * Every change to the person, oldest first, also after they were deleted. Needs view access.

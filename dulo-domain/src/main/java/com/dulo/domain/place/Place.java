@@ -50,6 +50,11 @@ public record Place(
         return name.toLowerCase(Locale.ROOT);
     }
 
+    /** The place, lying in another one. */
+    public Place enclosedIn(final PlaceId enclosing) {
+        return new Place(id, name, type, coordinates, enclosing, version);
+    }
+
     /** The place, no longer lying in another one. */
     public Place withoutEnclosure() {
         return new Place(id, name, type, coordinates, null, version);

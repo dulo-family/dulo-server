@@ -53,4 +53,20 @@ class FamilyTest {
         assertThat(RelationshipType.CIVIL_UNION.key()).isEqualTo("civil-union");
         assertThat(ChildRelation.fromKey("Step")).contains(ChildRelation.STEP);
     }
+
+    @Test
+    void takesBackMembersWithinItsLimits() {
+        final Family family =
+                Family.create(List.of(this.mother), RelationshipType.MARRIED, List.of());
+
+        final Family whole =
+                family.withPartner(this.father)
+                        .withChild(new Child(this.child, ChildRelation.FOSTER));
+
+        assertThat(whole.members()).containsExactly(this.mother, this.father, this.child);
+        assertThatThrownBy(() -> whole.withPartner(PersonId.newId()))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> whole.withChild(new Child(this.mother, ChildRelation.BIRTH)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }
