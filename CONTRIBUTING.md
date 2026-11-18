@@ -41,8 +41,8 @@ Dulo ships as one image with the server and the web client, built by the web cli
 That build downloads the server JAR from a GitHub release and checks where it came from:
 
 ```sh
-gh release download vX.Y.Z --repo rdlf0/dulo-server --pattern 'dulo-server-*.jar'
-gh attestation verify dulo-server-X.Y.Z.jar --repo rdlf0/dulo-server
+gh release download vX.Y.Z --repo dulo-family/dulo-server --pattern 'dulo-server-*.jar'
+gh attestation verify dulo-server-X.Y.Z.jar --repo dulo-family/dulo-server
 ```
 
 The JAR runs with `java -jar` on Java 25. It needs no extra JVM options.

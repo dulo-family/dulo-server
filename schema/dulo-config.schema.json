@@ -224,6 +224,6 @@
       "description" : "Dulo settings."
     }
   },
-  "$id" : "https://raw.githubusercontent.com/rdlf0/dulo-server/main/schema/dulo-config.schema.json",
+  "$id" : "https://raw.githubusercontent.com/dulo-family/dulo-server/main/schema/dulo-config.schema.json",
   "title" : "Dulo server configuration"
 }

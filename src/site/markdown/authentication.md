@@ -138,7 +138,7 @@ Postman supports the authorization code flow with PKCE.
    ```
 
 2. Start the server with the development configuration
-   [`deploy/dev/dulo.dev.yaml`](https://github.com/rdlf0/dulo-server/blob/main/deploy/dev/dulo.dev.yaml):
+   [`deploy/dev/dulo.dev.yaml`](https://github.com/dulo-family/dulo-server/blob/main/deploy/dev/dulo.dev.yaml):
 
    ```sh
    DULO_CONFIG_FILE=deploy/dev/dulo.dev.yaml java -jar dulo-service/target/dulo-server-*.jar
