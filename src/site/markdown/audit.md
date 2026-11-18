@@ -104,6 +104,50 @@ they ever disagree.
 - **Storage.** The table `change_event` holds the fields above. `changes` and `removed_links` are
   JSON, and `format_version` says which format they use.
 
+## Deleting with links, and restoring
+
+Deleting a record that others refer to, such as a person who is a partner in a family, first
+fails with a `has-links` problem listing those references. A confirmed deletion
+(`?confirmed=true`) removes them in the same action: each record it changes gets a `changed`
+event, and the deletion's own event lists the references in `removedLinks`. All these events share
+one correlation id.
+
+`POST /api/v1/{people|places|families|events}/{id}/restore` with `{"eventId": "…"}` brings a
+record back to its state right after one of its events:
+
+1. Replay the record's events up to that one (`Replay.stateAfter`), and turn the fields back into
+   a record (`RestorableFields.fromFields`).
+2. Drop the references to records that no longer exist, such as a family partner who was deleted
+   since.
+3. For a deleted record, plan to put back the links its deletion removed, from `removedLinks`.
+   Details that the link doesn't hold come from the other record's own event in the deletion's
+   correlation, such as a child's relation or a participant's role. A link can't come back if the
+   other record is gone, is full (a family with two partners), or now refers elsewhere (a village
+   that lies in another county now).
+4. If something from steps 2 and 3 can't come back, answer `restore-conflict` with the list, unless
+   the restore is confirmed.
+5. Save the record and record a `restored` event with the differences, then save each relinked
+   record with its own `changed` event, all in one action.
+
+Restoring never rewrites history: it is a new change, and it can itself be undone the same way.
+
+<pre class="mermaid">
+sequenceDiagram
+    actor U as User
+    participant P as Person service
+    participant F as Family
+    participant A as Audit history
+    U->>P: DELETE /people/anna?confirmed=true
+    P->>F: remove Anna from partners
+    P->>A: family changed (partners), correlation c1
+    P->>A: person deleted, removedLinks: [family/partners], correlation c1
+    U->>P: POST /people/anna/restore {eventId}
+    P->>A: replay Anna's events up to eventId
+    P->>A: person restored, correlation c2
+    P->>F: add Anna back to partners
+    P->>A: family changed (partners), correlation c2
+</pre>
+
 ## Who sees what
 
 The audit log, `GET /api/v1/audit`, needs view access to the `audit-log` feature. Changes to the
@@ -115,7 +159,8 @@ left out, and filtering by them is refused. The log is read newest first, in pag
 - **Every write records its changes,** in the same unit of work as the write, after the record is
   stored, so the event gets the new version. A test of the use case checks the events.
 - **A new record type** gets an `EntityType`, a `RecordFields` codec and a test that its fields
-  are what you expect.
+  are what you expect. To be restorable, the codec implements `RestorableFields`, and a test checks
+  that a record survives the round trip through its fields.
 - **Field names and value formats are a stored format.** Renaming or reshaping a field changes
   how old events read. Either keep the old shape, or raise `format_version` and upcast the old
   rows when they are read.

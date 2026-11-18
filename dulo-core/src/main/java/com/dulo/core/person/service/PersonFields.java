@@ -1,9 +1,13 @@
 package com.dulo.core.person.service;
 
-import com.dulo.core.audit.recording.RecordFields;
+import com.dulo.core.audit.recording.FieldReader;
+import com.dulo.core.audit.recording.RestorableFields;
 import com.dulo.domain.audit.EntityType;
+import com.dulo.domain.person.NameType;
 import com.dulo.domain.person.Person;
+import com.dulo.domain.person.PersonId;
 import com.dulo.domain.person.PersonName;
+import com.dulo.domain.person.Sex;
 
 import org.jspecify.annotations.Nullable;
 
@@ -11,7 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /** People in the audit history. */
-public final class PersonFields implements RecordFields<Person> {
+public final class PersonFields implements RestorableFields<Person> {
 
     public static final PersonFields INSTANCE = new PersonFields();
 
@@ -58,5 +62,30 @@ public final class PersonFields implements RecordFields<Person> {
         fields.put("sex", person.sex().key());
         fields.put("notes", person.notes());
         return fields;
+    }
+
+    @Override
+    public Person fromFields(final String id, final Map<String, Object> fields) {
+        return new Person(
+                PersonId.parse(id),
+                FieldReader.list(
+                        fields,
+                        "names",
+                        element -> {
+                            final Map<?, ?> name = FieldReader.asMap(element);
+                            return new PersonName(
+                                    FieldReader.constant(
+                                            FieldReader.text(name, "type"),
+                                            "name type",
+                                            NameType::fromKey),
+                                    FieldReader.optionalText(name, "given"),
+                                    FieldReader.optionalText(name, "surname"),
+                                    FieldReader.optionalText(name, "prefix"),
+                                    FieldReader.optionalText(name, "suffix"),
+                                    FieldReader.optionalText(name, "nickname"));
+                        }),
+                FieldReader.constant(FieldReader.text(fields, "sex"), "sex", Sex::fromKey),
+                FieldReader.optionalText(fields, "notes"),
+                0);
     }
 }

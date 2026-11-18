@@ -6,6 +6,8 @@ import com.dulo.core.access.port.in.RoleInUseException;
 import com.dulo.core.setup.port.in.InvalidSetupTokenException;
 import com.dulo.core.setup.port.in.SetupCompletedException;
 import com.dulo.core.shared.port.in.HasLinksException;
+import com.dulo.core.shared.port.in.RestoreConflictException;
+import com.dulo.core.shared.port.in.VersionRequiredException;
 import com.dulo.domain.access.AccessDeniedException;
 import com.dulo.domain.shared.ConcurrentModificationException;
 import com.dulo.domain.shared.NotFoundException;
@@ -126,6 +128,29 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
         problem.setProperty("users", e.users().stream().map(UserId::toString).toList());
         problem.setProperty("identityProviders", e.identityProviders());
         return problem;
+    }
+
+    /** Lists the links, so the client can warn about what a confirmed restore leaves out. */
+    @ExceptionHandler
+    ProblemDetail restoreConflict(final RestoreConflictException e) {
+        final ProblemDetail problem =
+                problem(
+                        HttpStatus.CONFLICT,
+                        ProblemTypes.RESTORE_CONFLICT,
+                        "Links can't come back",
+                        e);
+        problem.setProperty(
+                "links", e.links().stream().map(ChangeEventResponse.LinkResponse::from).toList());
+        return problem;
+    }
+
+    @ExceptionHandler
+    ProblemDetail versionRequired(final VersionRequiredException e) {
+        return problem(
+                HttpStatus.PRECONDITION_REQUIRED,
+                ProblemTypes.PRECONDITION_REQUIRED,
+                "If-Match required",
+                e);
     }
 
     /** Lists the references, so the client can warn about what a confirmed deletion removes. */

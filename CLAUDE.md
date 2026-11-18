@@ -116,7 +116,9 @@ Every write use case records its changes through `ChangeRecorder.changeSet(calle
 work, after storing the record. The events are complete (creations hold every field, changes the
 differences, deletions every field), so replaying them rebuilds a record: a hybrid of event
 sourcing where the tables stay the source of truth. Each record type has a `RecordFields` codec;
-its field names are a stored format. Design and rules: `src/site/markdown/audit.md`.
+its field names are a stored format. Restore replays a record's events (`Replay`) and turns the
+fields back into a record (`RestorableFields`); undeleting puts back the deletion's `removedLinks`.
+Design and rules: `src/site/markdown/audit.md`.
 
 ## Conventions
 

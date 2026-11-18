@@ -102,4 +102,23 @@ class EventTest {
         assertThat(EventType.fromKey("Marriage")).contains(EventType.MARRIAGE);
         assertThat(ParticipantRole.GODPARENT.key()).isEqualTo("godparent");
     }
+
+    @Test
+    void takesBackParticipantsPlacesAndFamilies() {
+        final Event event = Event.create(EventType.BIRTH, null, null, null, null, null, List.of());
+        final PlaceId place = PlaceId.newId();
+        final FamilyId family = FamilyId.newId();
+
+        final Event linked =
+                event.withParticipant(new Participant(this.anna, ParticipantRole.PRINCIPAL))
+                        .atPlace(place)
+                        .ofFamily(family);
+
+        assertThat(linked.participants()).hasSize(1);
+        assertThat(linked.place()).isEqualTo(place);
+        assertThat(linked.family()).isEqualTo(family);
+        assertThatThrownBy(() ->
+                        linked.withParticipant(new Participant(this.anna, ParticipantRole.WITNESS)))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

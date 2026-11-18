@@ -28,6 +28,7 @@ public final class ProblemTypes {
     public static final URI ROLE_EXISTS = URI.create("urn:dulo:problem:role-exists");
     public static final URI ROLE_IN_USE = URI.create("urn:dulo:problem:role-in-use");
     public static final URI HAS_LINKS = URI.create("urn:dulo:problem:has-links");
+    public static final URI RESTORE_CONFLICT = URI.create("urn:dulo:problem:restore-conflict");
 
     private ProblemTypes() {}
 }
