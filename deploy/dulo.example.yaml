@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/rdlf0/dulo-server/main/schema/dulo-config.schema.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/dulo-family/dulo-server/main/schema/dulo-config.schema.json
 #
 # Example Dulo configuration. Mount it at /config/dulo.yaml (or point DULO_CONFIG_FILE to it).
 # Every value can also be set with an environment variable, which takes precedence:

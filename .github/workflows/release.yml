@@ -107,7 +107,7 @@ jobs:
         run: git checkout "$TAG"
 
       # Lets anyone, such as the Docker image build of the web client, verify that the JAR was
-      # built here: gh attestation verify dulo-server-<version>.jar --repo rdlf0/dulo-server
+      # built here: gh attestation verify dulo-server-<version>.jar --repo dulo-family/dulo-server
       - name: Attest JAR
         uses: actions/attest-build-provenance@v4
         with:

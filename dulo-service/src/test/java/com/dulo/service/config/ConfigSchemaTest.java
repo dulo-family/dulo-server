@@ -48,7 +48,7 @@ class ConfigSchemaTest {
     private static final Path SCHEMA = Path.of("..", "schema", "dulo-config.schema.json");
     private static final Path EXAMPLE = Path.of("..", "deploy", "dulo.example.yaml");
     private static final String SCHEMA_ID =
-            "https://raw.githubusercontent.com/rdlf0/dulo-server/main/schema/dulo-config.schema.json";
+            "https://raw.githubusercontent.com/dulo-family/dulo-server/main/schema/dulo-config.schema.json";
 
     private static final JsonMapper JSON =
             JsonMapper.builder().enable(SerializationFeature.INDENT_OUTPUT).build();

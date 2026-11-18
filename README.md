@@ -8,7 +8,7 @@ as Google, Microsoft or a self-hosted one like Pocket ID.
 > sign-in are in place; the initial setup, administration and family tree features are coming
 > next.
 
-**Docs:** [rdlf0.github.io/dulo-server](https://rdlf0.github.io/dulo-server/): REST API reference
+**Docs:** [dulo-family.github.io/dulo-server](https://dulo-family.github.io/dulo-server/): REST API reference
 (Swagger UI), the OpenAPI document for generating clients, the Javadoc, and test and coverage reports.
 
 ## Quick start
@@ -17,7 +17,7 @@ Dulo is distributed as one Docker image with the server and the web client, buil
 client project. This repository releases the server JAR that the image runs.
 
 To run the server on its own, download the JAR from the
-[latest release](https://github.com/rdlf0/dulo-server/releases/latest) and start it with Java 25.
+[latest release](https://github.com/dulo-family/dulo-server/releases/latest) and start it with Java 25.
 It stores a SQLite database in `./data`:
 
 ```sh
@@ -37,7 +37,7 @@ are masked.
 Until the initial setup is done, the API answers 503, except for the setup itself. The server logs
 a one-time setup token (or uses `dulo.setup.token`). Sign in, then complete the setup with that
 token: it creates the tree and the roles, and you become the root user. The
-[Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page describes the
+[Authentication](https://dulo-family.github.io/dulo-server/authentication.html) page describes the
 steps.
 
 ## Configuration
@@ -78,7 +78,7 @@ The schema is created and upgraded automatically on start.
 
 Configure at least one identity provider under `dulo.identity.providers` and the web client's
 redirect URIs under `dulo.clients.web`. See the
-[Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page for how sign-in
+[Authentication](https://dulo-family.github.io/dulo-server/authentication.html) page for how sign-in
 works and how to test the API with Postman.
 
 ### Users and roles
@@ -98,7 +98,7 @@ works and how to test the API with Postman.
   `PATCH /api/v1/tree`. Permissions are checked on every request, so a change applies at once.
   Administrators other than root can only grant what they may do themselves, so a role that may
   only approve users can't be used to become a full administrator. The
-  [Authentication](https://rdlf0.github.io/dulo-server/authentication.html) page explains the
+  [Authentication](https://dulo-family.github.io/dulo-server/authentication.html) page explains the
   rules.
 
 ### Family tree records
@@ -125,7 +125,7 @@ Every change is recorded with who made it, when, and the values before and after
 family tree, and administrative changes such as role edits, user approvals and the initial setup.
 Users with view access to the `audit-log` feature read it through `/api/v1/audit`; changes to
 the tree settings, roles and users are visible to administrators only. The
-[Audit history](https://rdlf0.github.io/dulo-server/audit.html) page explains how it works.
+[Audit history](https://dulo-family.github.io/dulo-server/audit.html) page explains how it works.
 
 ### Features
 
