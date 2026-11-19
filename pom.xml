@@ -65,6 +65,9 @@
     <java.version>25</java.version>
     <maven.compiler.release>${java.version}</maven.compiler.release>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    <!-- Timestamp of reproducible builds and the site's "Last Published" date. release:prepare
+     sets it on every release; without it, the super POM's 1980-02-01 applies. -->
+    <project.build.outputTimestamp>2026-11-18T17:42:59Z</project.build.outputTimestamp>
     <!-- Version policy for maven-release-plugin. Can be changed by passing -DreleaseType -->
     <releaseType>SemVerMinorRelease</releaseType>
 
