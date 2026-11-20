@@ -58,6 +58,11 @@ sequenceDiagram
 The server skips the web client's sign-in page (step 2) when the choice is clear: only one
 provider is configured, or the authorization request names one with `idp=<providerId>`.
 
+The web client is the public client `dulo-web`. By default it runs under the public URL, as in the
+Docker image: its sign-in page is `<public-url>/sign-in` and its redirect URI
+`<public-url>/auth/callback`. A web client served elsewhere needs `dulo.clients.web.redirect-uris`,
+`allowed-origins` and `sign-in-url`; `deploy/dev/dulo.dev.yaml` shows them for local development.
+
 ## Users and roles
 
 - New users are **active** when `dulo.registration.mode` is `auto`, or when a role mapping matches

@@ -99,11 +99,11 @@
                   "description" : "OAuth2 client id of the web client."
                 },
                 "redirect-uris" : {
-                  "description" : "Allowed redirect URIs after sign-in.",
+                  "description" : "Allowed redirect URIs after sign-in. Defaults to /auth/callback under the public URL.",
                   "type" : "array",
                   "items" : {
                     "$ref" : "#/$defs/URI",
-                    "description" : "Allowed redirect URIs after sign-in."
+                    "description" : "Allowed redirect URIs after sign-in. Defaults to /auth/callback under the public URL."
                   }
                 },
                 "sign-in-url" : {

@@ -35,14 +35,18 @@ dulo:
         client-secret: change-me
         default-role: viewer
 
-  clients:
-    web:
-      redirect-uris:
-        - https://tree.example.com/auth/callback
-      allowed-origins:
-        - https://tree.example.com
-      # The web client's page that lists the identity providers. Default: <public-url>/sign-in
-      # sign-in-url: https://tree.example.com/sign-in
+  # Only needed when the web client doesn't run under the public URL (the Docker image serves it
+  # there), for example during its development.
+  # clients:
+  #   web:
+  #     # Default: <public-url>/auth/callback
+  #     redirect-uris:
+  #       - https://web.example.com/auth/callback
+  #     # Origins that call the API from a browser (CORS). None by default.
+  #     allowed-origins:
+  #       - https://web.example.com
+  #     # The web client's page that lists the identity providers. Default: <public-url>/sign-in
+  #     sign-in-url: https://web.example.com/sign-in
 
   registration:
     mode: approval

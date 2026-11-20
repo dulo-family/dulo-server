@@ -71,6 +71,15 @@ class IdentityAdapterWiringTest {
     }
 
     @Test
+    void redirectUriDefaultsToTheWebClientUnderThePublicUrl() {
+        assertThat(
+                        settings(Map.of("dulo.public-url", "https://tree.example.com/"))
+                                .webClient()
+                                .redirectUris())
+                .containsExactly(URI.create("https://tree.example.com/auth/callback"));
+    }
+
+    @Test
     void mapsTheWebClient() {
         final IdentityAdapterSettings settings =
                 settings(

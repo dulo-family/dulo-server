@@ -72,6 +72,7 @@ public record IdentityAdapterSettings(
     /**
      * The Dulo web client.
      *
+     * @param redirectUris where the authorization server may send the code; at least one
      * @param signInUrl the web client's sign-in page, which lists the identity providers
      */
     public record WebClient(
@@ -80,6 +81,9 @@ public record IdentityAdapterSettings(
         public WebClient {
             Objects.requireNonNull(clientId, "clientId");
             redirectUris = List.copyOf(redirectUris);
+            if (redirectUris.isEmpty()) {
+                throw new IllegalArgumentException("The web client needs a redirect URI");
+            }
             allowedOrigins = List.copyOf(allowedOrigins);
             Objects.requireNonNull(signInUrl, "signInUrl");
         }
