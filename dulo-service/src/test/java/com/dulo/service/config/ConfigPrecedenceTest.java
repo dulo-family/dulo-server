@@ -63,13 +63,18 @@ class ConfigPrecedenceTest {
             final ConfigurationReport report = new ConfigurationReport(context.getEnvironment());
 
             assertThat(properties.database().url()).isEqualTo("jdbc:mysql://from-env:3306/dulo");
-            assertThat(report.sourceOf("dulo.database.url")).isEqualTo("env");
+            assertThat(report.sourcesOf("dulo.database.url", false))
+                    .containsExactly(
+                            "default",
+                            "file " + configFile,
+                            "environment variable DULO_DATABASE_URL");
 
             assertThat(properties.publicUrl()).hasToString("https://tree.example.com");
-            assertThat(report.sourceOf("dulo.public-url")).startsWith("file ");
+            assertThat(report.sourcesOf("dulo.public-url", true))
+                    .containsExactly("default", "file " + configFile);
 
             assertThat(properties.dataDir()).isEqualTo(Path.of("data"));
-            assertThat(report.sourceOf("dulo.data-dir")).isEqualTo("default");
+            assertThat(report.sourcesOf("dulo.data-dir", false)).containsExactly("default");
         }
     }
 

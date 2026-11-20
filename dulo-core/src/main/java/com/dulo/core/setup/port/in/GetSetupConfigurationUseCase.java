@@ -3,7 +3,7 @@ package com.dulo.core.setup.port.in;
 public interface GetSetupConfigurationUseCase {
 
     /**
-     * The server's merged configuration, with secrets masked and the source of each value, so the
+     * The server's merged configuration, with secrets masked and every source of each value, so the
      * person doing the setup can check it.
      *
      * @param setupToken the one-time setup token

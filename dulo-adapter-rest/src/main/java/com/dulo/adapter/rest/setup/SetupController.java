@@ -113,7 +113,7 @@ class SetupController {
     @Operation(
             summary = "Get the server's configuration",
             description =
-                    "The merged configuration with secrets masked and the source of each value,"
+                    "The merged configuration with secrets masked and every source of each value,"
                             + " to check it before completing the setup.")
     @ApiResponse(responseCode = "200", description = "The configuration")
     @ApiResponse(

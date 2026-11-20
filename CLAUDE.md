@@ -66,7 +66,7 @@ Hexagonal (onion) layout, one Maven module per layer. Packages are `com.dulo.<la
   setup.
 - `dulo-service`: the Spring Boot application, which builds `dulo-server-<version>.jar`. It holds:
   - the `@ConfigurationProperties("dulo")` records (`DuloProperties`);
-  - the config report, logged on startup with masked secrets and the source of each value;
+  - the config report, logged on startup with masked secrets and every source of each value;
   - wiring: core services are plain classes, created as `@Bean`s in `wiring/CoreServicesConfiguration`;
   - all ArchUnit tests and integration tests.
 

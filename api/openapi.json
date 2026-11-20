@@ -3268,7 +3268,7 @@
     },
     "/api/v1/setup/config" : {
       "get" : {
-        "description" : "The merged configuration with secrets masked and the source of each value, to check it before completing the setup.",
+        "description" : "The merged configuration with secrets masked and every source of each value, to check it before completing the setup.",
         "operationId" : "configuration",
         "parameters" : [ {
           "description" : "The one-time setup token. The server logs it on start, unless it is set in dulo.setup.token.",
@@ -4359,7 +4359,7 @@
         "properties" : {
           "configuration" : {
             "type" : "string",
-            "description" : "The merged configuration as YAML, with secrets masked and the source of each value as a comment."
+            "description" : "The merged configuration as YAML, with secrets masked. Each value's comment lists every source that sets it, lowest priority first and separated by ` → `: the last one wins. `default` comes first when Dulo has a default."
           }
         },
         "required" : [ "configuration" ]

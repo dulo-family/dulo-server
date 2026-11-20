@@ -364,7 +364,7 @@ abstract class AbstractApiIT {
                                         .body())
                         .path("configuration")
                         .asString();
-        assertThat(configuration).contains("client-secret: ****").doesNotContain("mock-secret");
+        assertThat(configuration).contains("client-secret: \"****\"").doesNotContain("mock-secret");
 
         // Completing it needs a signed-in user, the setup token and a valid request.
         final String request =
