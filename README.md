@@ -76,8 +76,9 @@ The schema is created and upgraded automatically on start.
 
 ### Sign-in
 
-Configure at least one identity provider under `dulo.identity.providers` and the web client's
-redirect URIs under `dulo.clients.web`. See the
+Configure at least one identity provider under `dulo.identity.providers`. The web client needs no
+configuration when it runs under the public URL, as in the Docker image. When it runs elsewhere,
+set its redirect URIs, allowed origins and sign-in page under `dulo.clients.web`. See the
 [Authentication](https://dulo-family.github.io/dulo-server/authentication.html) page for how sign-in
 works and how to test the API with Postman.
 

@@ -18,6 +18,9 @@ import java.util.List;
 @Configuration(proxyBeanMethods = false)
 public class IdentityAdapterWiring {
 
+    /** Path of the web client's sign-in callback, used when no redirect URI is configured. */
+    static final String DEFAULT_CALLBACK_PATH = "/auth/callback";
+
     /** Path of the web client's sign-in page, used when no sign-in URL is configured. */
     static final String DEFAULT_SIGN_IN_PATH = "/sign-in";
 
@@ -29,15 +32,18 @@ public class IdentityAdapterWiring {
                         .sorted(Comparator.comparing(Provider::id))
                         .toList();
         final DuloProperties.WebClient web = properties.clients().web();
+        // Without configuration, the web client is served under the public URL, as in the image.
+        final String base = publicUrl.toString().replaceAll("/+$", "");
+        final List<URI> redirectUris =
+                web.redirectUris().isEmpty()
+                        ? List.of(URI.create(base + DEFAULT_CALLBACK_PATH))
+                        : web.redirectUris();
         final URI signInUrl =
-                web.signInUrl() != null
-                        ? web.signInUrl()
-                        : URI.create(
-                                publicUrl.toString().replaceAll("/+$", "") + DEFAULT_SIGN_IN_PATH);
+                web.signInUrl() != null ? web.signInUrl() : URI.create(base + DEFAULT_SIGN_IN_PATH);
         return new IdentityAdapterSettings(
                 publicUrl,
                 providers,
-                new WebClient(web.clientId(), web.redirectUris(), web.allowedOrigins(), signInUrl));
+                new WebClient(web.clientId(), redirectUris, web.allowedOrigins(), signInUrl));
     }
 
     private static Provider provider(final String id, final DuloProperties.Provider provider) {

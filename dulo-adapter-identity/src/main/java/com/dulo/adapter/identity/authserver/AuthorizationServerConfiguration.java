@@ -47,16 +47,10 @@ public class AuthorizationServerConfiguration {
                 .build();
     }
 
-    /**
-     * The web client: a public client using the authorization code flow with PKCE. It exists once
-     * at least one redirect URI is configured.
-     */
+    /** The web client: a public client using the authorization code flow with PKCE. */
     @Bean
     RegisteredClientRepository registeredClientRepository(final IdentityAdapterSettings settings) {
         final IdentityAdapterSettings.WebClient web = settings.webClient();
-        if (web.redirectUris().isEmpty()) {
-            return new WebClientRegistrations(null);
-        }
         final RegisteredClient client =
                 RegisteredClient.withId(web.clientId())
                         .clientId(web.clientId())

@@ -242,7 +242,11 @@ public record DuloProperties(
     public record WebClient(
             @ConfigDoc("OAuth2 client id of the web client.") @DefaultValue("dulo-web")
                     String clientId,
-            @ConfigDoc("Allowed redirect URIs after sign-in.") @DefaultValue List<URI> redirectUris,
+            @ConfigDoc(
+                            "Allowed redirect URIs after sign-in. Defaults to /auth/callback under"
+                                    + " the public URL.")
+                    @DefaultValue
+                    List<URI> redirectUris,
             @ConfigDoc("Origins allowed to call the API from a browser (CORS).") @DefaultValue
                     List<String> allowedOrigins,
             @ConfigDoc(

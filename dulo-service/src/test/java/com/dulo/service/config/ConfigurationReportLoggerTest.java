@@ -19,10 +19,8 @@ class ConfigurationReportLoggerTest {
     @Test
     void warnsWhenNobodyCanSignIn() {
         assertThat(ConfigurationReportLogger.signInWarnings(bind(Map.of())))
-                .hasSize(3)
+                .hasSize(2)
                 .anySatisfy(warning -> assertThat(warning).contains("dulo.identity.providers"))
-                .anySatisfy(
-                        warning -> assertThat(warning).contains("dulo.clients.web.redirect-uris"))
                 .anySatisfy(warning -> assertThat(warning).contains("DULO_CONFIG_FILE"));
     }
 
@@ -33,8 +31,7 @@ class ConfigurationReportLoggerTest {
                         Map.of(
                                 "dulo.identity.providers.mock.type", "oidc",
                                 "dulo.identity.providers.mock.issuer-uri", "http://idp",
-                                "dulo.identity.providers.mock.client-id", "dulo",
-                                "dulo.clients.web.redirect-uris[0]", "http://web/callback"));
+                                "dulo.identity.providers.mock.client-id", "dulo"));
 
         assertThat(ConfigurationReportLogger.signInWarnings(properties)).isEmpty();
     }

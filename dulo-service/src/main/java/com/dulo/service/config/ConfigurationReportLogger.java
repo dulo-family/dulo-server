@@ -57,11 +57,6 @@ class ConfigurationReportLogger implements ApplicationListener<ApplicationReadyE
                     "No identity providers are configured (dulo.identity.providers), so nobody"
                             + " can sign in.");
         }
-        if (properties.clients().web().redirectUris().isEmpty()) {
-            warnings.add(
-                    "The web client has no redirect URIs (dulo.clients.web.redirect-uris), so the"
-                            + " authorization server has no clients and rejects every sign-in.");
-        }
         if (!warnings.isEmpty()) {
             warnings.add(
                     "The configuration file is /config/dulo.yaml, or the file DULO_CONFIG_FILE"
