@@ -22,6 +22,9 @@
     "description" : "The signed-in user",
     "name" : "Me"
   }, {
+    "description" : "The Dulo server itself",
+    "name" : "Server"
+  }, {
     "description" : "Administration of the roles and their permissions. Needs the administration feature with the matching access. Only the root user may change the built-in roles, and nobody may delete them.",
     "name" : "Roles"
   }, {
@@ -3184,6 +3187,59 @@
         "tags" : [ "Places" ]
       }
     },
+    "/api/v1/server" : {
+      "get" : {
+        "description" : "Returns the version of the running server, for clients that show what is running. Every active user may read it.",
+        "operationId" : "getServer",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "application/json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ServerResponse"
+                }
+              }
+            },
+            "description" : "The server"
+          },
+          "401" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "No valid access token. The problem type is `urn:dulo:problem:unauthorized`."
+          },
+          "403" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The account is not active. The problem type is `urn:dulo:problem:account-pending` or `urn:dulo:problem:account-disabled`."
+          },
+          "503" : {
+            "content" : {
+              "application/problem+json" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/ProblemDetail"
+                }
+              }
+            },
+            "description" : "The initial setup isn't done yet. The problem type is `urn:dulo:problem:setup-required`."
+          }
+        },
+        "security" : [ {
+          "oauth2" : [ ]
+        } ],
+        "summary" : "Get the server's version",
+        "tags" : [ "Server" ]
+      }
+    },
     "/api/v1/setup" : {
       "post" : {
         "description" : "Creates the tree and the roles, and makes the signed-in caller the root user, who may do everything. Works once.",
@@ -4353,6 +4409,17 @@
           }
         },
         "required" : [ "builtIn", "key", "name", "permissions", "version" ]
+      },
+      "ServerResponse" : {
+        "type" : "object",
+        "properties" : {
+          "version" : {
+            "type" : "string",
+            "description" : "The server's version, e.g. `0.4.0`, or `unknown` when it was built without build information.",
+            "example" : "0.4.0"
+          }
+        },
+        "required" : [ "version" ]
       },
       "SetupConfigurationResponse" : {
         "type" : "object",
