@@ -39,6 +39,7 @@ import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -113,6 +114,7 @@ abstract class AbstractApiIT {
     @Autowired SigningKeyUseCase signingKeys;
     @Autowired UnitOfWork unitOfWork;
     @Autowired ChangeEventRepository changeEvents;
+    @Autowired BuildProperties build;
 
     /**
      * Points the server at a database container. Call it from each subclass's
@@ -735,6 +737,21 @@ abstract class AbstractApiIT {
                 .isNotEqualTo(Optional.of(etag));
         assertThat(this.call("PATCH", "/api/v1/tree", admin, change, "If-Match", etag).statusCode())
                 .isEqualTo(412);
+    }
+
+    @Test
+    void activeUsersSeeTheServerVersion() throws Exception {
+        this.completeSetupIfPending();
+        final String admin = this.signInAsAdmin("it-version-admin");
+        final String newcomer = this.client().signIn("it-version-newcomer", "{}").accessToken();
+
+        final HttpResponse<String> server = this.get("/api/v1/server", admin);
+        assertThat(server.statusCode()).as(server.body()).isEqualTo(200);
+        assertThat(JSON.readTree(server.body()).path("version").asString())
+                .isEqualTo(this.build.getVersion());
+        assertThat(problemType(this.get("/api/v1/server", newcomer)))
+                .isEqualTo("urn:dulo:problem:account-pending");
+        assertThat(this.get("/api/v1/server").statusCode()).isEqualTo(401);
     }
 
     @Test

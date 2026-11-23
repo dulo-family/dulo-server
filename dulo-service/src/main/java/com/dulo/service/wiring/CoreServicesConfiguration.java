@@ -22,6 +22,8 @@ import com.dulo.core.person.port.out.PersonRepository;
 import com.dulo.core.person.service.PersonService;
 import com.dulo.core.place.port.out.PlaceRepository;
 import com.dulo.core.place.service.PlaceService;
+import com.dulo.core.server.port.in.ServerInfo;
+import com.dulo.core.server.service.ServerInfoService;
 import com.dulo.core.setup.port.out.ConfigurationReportPort;
 import com.dulo.core.setup.port.out.SetupTokenPort;
 import com.dulo.core.setup.service.SetupService;
@@ -30,14 +32,20 @@ import com.dulo.core.tree.port.out.FeatureOverridesPort;
 import com.dulo.core.tree.port.out.TreeSettingsRepository;
 import com.dulo.core.tree.service.TreeService;
 
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.info.BuildProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 import java.time.Clock;
+import java.util.Optional;
 
 /** Creates the framework-free application services and connects them to their ports. */
 @Configuration(proxyBeanMethods = false)
 public class CoreServicesConfiguration {
+
+    /** The version when the build left no build information, e.g. when run from an IDE. */
+    static final String UNKNOWN_VERSION = "unknown";
 
     @Bean
     Clock clock() {
@@ -140,6 +148,20 @@ public class CoreServicesConfiguration {
             final UnitOfWork unitOfWork) {
         return new RoleAdministrationService(
                 roles, users, providers, accessPolicy, recorder, unitOfWork);
+    }
+
+    /** The version comes from the build information Maven writes into the JAR. */
+    @Bean
+    ServerInfoService serverInfoService(
+            final ObjectProvider<BuildProperties> build,
+            final AccessPolicy accessPolicy,
+            final UnitOfWork unitOfWork) {
+        final BuildProperties properties = build.getIfAvailable();
+        final String version =
+                Optional.ofNullable(properties)
+                        .map(BuildProperties::getVersion)
+                        .orElse(UNKNOWN_VERSION);
+        return new ServerInfoService(new ServerInfo(version), accessPolicy, unitOfWork);
     }
 
     @Bean

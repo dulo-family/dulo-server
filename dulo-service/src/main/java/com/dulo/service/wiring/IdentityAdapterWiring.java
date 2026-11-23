@@ -13,6 +13,7 @@ import org.springframework.context.annotation.Configuration;
 import java.net.URI;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 
 /** Maps the Dulo configuration to the settings of the identity adapter. */
 @Configuration(proxyBeanMethods = false)
@@ -39,7 +40,8 @@ public class IdentityAdapterWiring {
                         ? List.of(URI.create(base + DEFAULT_CALLBACK_PATH))
                         : web.redirectUris();
         final URI signInUrl =
-                web.signInUrl() != null ? web.signInUrl() : URI.create(base + DEFAULT_SIGN_IN_PATH);
+                Optional.ofNullable(web.signInUrl())
+                        .orElseGet(() -> URI.create(base + DEFAULT_SIGN_IN_PATH));
         return new IdentityAdapterSettings(
                 publicUrl,
                 providers,
