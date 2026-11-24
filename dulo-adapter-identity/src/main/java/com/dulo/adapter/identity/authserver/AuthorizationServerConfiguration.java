@@ -14,7 +14,6 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
-import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
@@ -49,10 +48,9 @@ public class AuthorizationServerConfiguration {
                 .build();
     }
 
-    /** Authorizations, with their codes and tokens, in memory: a restart signs everyone out. */
     @Bean
-    OAuth2AuthorizationService authorizationService() {
-        return new InMemoryOAuth2AuthorizationService();
+    SignInAuthorizations authorizationService() {
+        return new SignInAuthorizations();
     }
 
     /** The web client: a public client using the authorization code flow with PKCE. */

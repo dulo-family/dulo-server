@@ -188,6 +188,14 @@ final class OAuthTestClient {
                                         SIGN_IN_URL)));
     }
 
+    /** What an identity provider sends when the user signs out there. */
+    HttpResponse<String> backChannelLogout(final String providerId, final String logoutToken)
+            throws IOException, InterruptedException {
+        return this.post(
+                this.baseUrl + "/logout/connect/back-channel/" + providerId,
+                form(Map.of("logout_token", logoutToken)));
+    }
+
     HttpResponse<String> tokenRequest(final Map<String, String> parameters)
             throws IOException, InterruptedException {
         return this.post(this.baseUrl + "/oauth2/token", form(parameters));

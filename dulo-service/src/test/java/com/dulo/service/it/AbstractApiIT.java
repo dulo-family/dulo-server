@@ -94,10 +94,37 @@ abstract class AbstractApiIT {
     private static final HttpClient HTTP = HttpClient.newHttpClient();
     private static final JsonMapper JSON = JsonMapper.builder().build();
 
-    /** The identity provider users sign in with. Shared by all databases, never stopped. */
+    static final String BACK_CHANNEL_USER = "it-back-channel";
+
+    /**
+     * The identity provider users sign in with. Shared by all databases, never stopped. A client
+     * credentials request with {@code scope=back-channel-logout} gets a logout token for {@link
+     * #BACK_CHANNEL_USER}, signed with the provider's key.
+     */
     private static final GenericContainer<?> IDP =
             new GenericContainer<>("ghcr.io/navikt/mock-oauth2-server:6.1.5")
-                    .withEnv("JSON_CONFIG", "{\"interactiveLogin\": true}")
+                    .withEnv(
+                            "JSON_CONFIG",
+                            """
+                            {
+                              "interactiveLogin": true,
+                              "tokenCallbacks": [{
+                                "issuerId": "default",
+                                "requestMappings": [{
+                                  "requestParam": "scope",
+                                  "match": "back-channel-logout",
+                                  "claims": {
+                                    "sub": "%s",
+                                    "aud": ["dulo"],
+                                    "events": {
+                                      "http://schemas.openid.net/event/backchannel-logout": {}
+                                    }
+                                  }
+                                }]
+                              }]
+                            }
+                            """
+                                    .formatted(BACK_CHANNEL_USER))
                     .withExposedPorts(8080)
                     .waitingFor(Wait.forHttp("/default/.well-known/openid-configuration"));
 
@@ -302,6 +329,38 @@ abstract class AbstractApiIT {
         assertThat(afterSignOut.body()).contains("invalid_grant");
         // The other device's sign-in goes on.
         assertThat(otherDevice.refresh(other.refreshToken()).accessToken()).isNotBlank();
+    }
+
+    @Test
+    void identityProvidersEndSignInsThroughTheBackChannel() throws Exception {
+        final OAuthTestClient browser = this.client();
+        final OAuthTestClient.Tokens signedIn = browser.signIn(BACK_CHANNEL_USER, "{}");
+        final OAuthTestClient otherUser = this.client();
+        final OAuthTestClient.Tokens other = otherUser.signIn("it-back-channel-other", "{}");
+
+        final HttpResponse<String> logout = browser.backChannelLogout("mock", this.logoutToken());
+
+        assertThat(logout.statusCode()).as(logout.body()).isEqualTo(200);
+        // The refresh token stops working.
+        final HttpResponse<String> refresh =
+                browser.tokenRequest(
+                        Map.of(
+                                "grant_type",
+                                "refresh_token",
+                                "refresh_token",
+                                signedIn.refreshToken(),
+                                "client_id",
+                                OAuthTestClient.CLIENT_ID));
+        assertThat(refresh.statusCode()).isEqualTo(400);
+        assertThat(refresh.body()).contains("invalid_grant");
+        // The browser session is gone, so a new authorization request goes to the provider again.
+        final HttpResponse<String> authorize =
+                browser.get(browser.authorizationUrl("x".repeat(43), null));
+        assertThat(authorize.statusCode()).isEqualTo(302);
+        assertThat(authorize.headers().firstValue("Location").orElseThrow())
+                .endsWith("/oauth2/authorization/mock");
+        // Other users stay signed in.
+        assertThat(otherUser.refresh(other.refreshToken()).accessToken()).isNotBlank();
     }
 
     @Test
@@ -1700,6 +1759,27 @@ abstract class AbstractApiIT {
                         "If-Match",
                         etag);
         assertThat(changed.statusCode()).as(changed.body()).isEqualTo(200);
+    }
+
+    /** A logout token for {@link #BACK_CHANNEL_USER} from the identity provider. */
+    private String logoutToken() throws IOException, InterruptedException {
+        final HttpResponse<String> response =
+                HTTP.send(
+                        HttpRequest.newBuilder(
+                                        URI.create(
+                                                "http://localhost:"
+                                                        + IDP.getMappedPort(8080)
+                                                        + "/default/token"))
+                                .header("Content-Type", "application/x-www-form-urlencoded")
+                                .POST(
+                                        HttpRequest.BodyPublishers.ofString(
+                                                "grant_type=client_credentials&client_id=dulo"
+                                                        + "&client_secret=mock-secret"
+                                                        + "&scope=back-channel-logout"))
+                                .build(),
+                        HttpResponse.BodyHandlers.ofString());
+        assertThat(response.statusCode()).as(response.body()).isEqualTo(200);
+        return JSON.readTree(response.body()).path("access_token").asString();
     }
 
     private OAuthTestClient client() {

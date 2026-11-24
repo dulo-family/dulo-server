@@ -59,8 +59,9 @@ Hexagonal (onion) layout, one Maven module per layer. Packages are `com.dulo.<la
   (`oauth2Login`), its own OAuth2 authorization server (public client `dulo-web`, PKCE, refresh
   tokens rotated, JWTs with `sub` = Dulo user id), and the resource server for `/api/**`. It gets
   its settings as `IdentityAdapterSettings`, mapped from `DuloProperties` in
-  `service/wiring/IdentityAdapterWiring`. Authorizations live in memory; the signing key is in the
-  DB. The auth flow is documented in `src/site/markdown/authentication.md`.
+  `service/wiring/IdentityAdapterWiring`. Authorizations live in memory (`SignInAuthorizations`,
+  which can remove those of a provider sign-in for back-channel logout, `BackChannelLogout`); the
+  signing key is in the DB. The auth flow is documented in `src/site/markdown/authentication.md`.
 - `dulo-adapter-rest`: Spring MVC controllers that only call `port.in` interfaces. Errors are
   RFC 9457 `ProblemDetail` responses with `urn:dulo:problem:*` types. It also holds the OpenAPI
   setup.

@@ -78,7 +78,9 @@ The schema is created and upgraded automatically on start.
 
 Configure at least one identity provider under `dulo.identity.providers`. The web client needs no
 configuration when it runs under the public URL, as in the Docker image. When it runs elsewhere,
-set its redirect URIs, allowed origins and sign-in page under `dulo.clients.web`. See the
+set its redirect URIs, allowed origins and sign-in page under `dulo.clients.web`. Providers that
+support back-channel logout can sign users out of Dulo when they sign out there: register
+`<public-url>/logout/connect/back-channel/<providerId>` with them. See the
 [Authentication](https://dulo-family.github.io/dulo-server/authentication.html) page for how sign-in
 works and how to test the API with Postman.
 
