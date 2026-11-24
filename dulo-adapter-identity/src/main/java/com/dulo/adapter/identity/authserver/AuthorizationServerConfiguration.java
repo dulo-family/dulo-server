@@ -14,6 +14,8 @@ import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.oauth2.core.OAuth2Token;
 import org.springframework.security.oauth2.core.oidc.OidcScopes;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
+import org.springframework.security.oauth2.server.authorization.InMemoryOAuth2AuthorizationService;
+import org.springframework.security.oauth2.server.authorization.OAuth2AuthorizationService;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClient;
 import org.springframework.security.oauth2.server.authorization.client.RegisteredClientRepository;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
@@ -45,6 +47,12 @@ public class AuthorizationServerConfiguration {
         return AuthorizationServerSettings.builder()
                 .issuer(settings.publicUrl().toString().replaceAll("/+$", ""))
                 .build();
+    }
+
+    /** Authorizations, with their codes and tokens, in memory: a restart signs everyone out. */
+    @Bean
+    OAuth2AuthorizationService authorizationService() {
+        return new InMemoryOAuth2AuthorizationService();
     }
 
     /** The web client: a public client using the authorization code flow with PKCE. */
@@ -93,12 +101,14 @@ public class AuthorizationServerConfiguration {
             final IdentityAdapterSettings settings,
             final AuthorizationServerSettings serverSettings,
             final RegisteredClientRepository clients,
+            final OAuth2AuthorizationService authorizations,
             final OAuth2TokenGenerator<OAuth2Token> tokenGenerator)
             throws Exception {
         http.oauth2AuthorizationServer(
                         server -> {
                             http.securityMatcher(server.getEndpointsMatcher());
                             server.registeredClientRepository(clients)
+                                    .authorizationService(authorizations)
                                     .tokenGenerator(tokenGenerator)
                                     .clientAuthentication(authentication ->
                                             authentication
@@ -109,7 +119,11 @@ public class AuthorizationServerConfiguration {
                                                     .authenticationProvider(
                                                             new PublicClientRefreshTokenAuthenticationProvider(
                                                                     clients)))
-                                    .oidc(Customizer.withDefaults());
+                                    .oidc(oidc ->
+                                            oidc.logoutEndpoint(logout ->
+                                                    logout.logoutResponseHandler(
+                                                            new EndAuthorizationOnSignOut(
+                                                                    authorizations))));
                         })
                 .authorizeHttpRequests(requests -> requests.anyRequest().authenticated())
                 // The OIDC user info endpoint takes Dulo's own access tokens.

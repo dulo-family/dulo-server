@@ -33,6 +33,7 @@ final class OAuthTestClient {
 
     static final String CLIENT_ID = "dulo-web";
     static final String REDIRECT_URI = "http://127.0.0.1/callback";
+    static final String SIGN_IN_URL = "http://127.0.0.1/sign-in";
 
     private static final JsonMapper JSON = JsonMapper.builder().build();
     private static final SecureRandom RANDOM = new SecureRandom();
@@ -172,6 +173,19 @@ final class OAuthTestClient {
                                 .POST(HttpRequest.BodyPublishers.ofString(form))
                                 .build(),
                         HttpResponse.BodyHandlers.ofString()));
+    }
+
+    /** Signs out the way the web client does: the browser goes to the end-session endpoint. */
+    HttpResponse<String> signOut(final String idToken) throws IOException, InterruptedException {
+        return this.get(
+                this.baseUrl
+                        + "/connect/logout?"
+                        + form(
+                                Map.of(
+                                        "id_token_hint",
+                                        idToken,
+                                        "post_logout_redirect_uri",
+                                        SIGN_IN_URL)));
     }
 
     HttpResponse<String> tokenRequest(final Map<String, String> parameters)
