@@ -65,8 +65,7 @@ class RoleAdministrationServiceTest {
 
                         @Override
                         public Optional<RoleMapping> roleMapping(final String providerId) {
-                            return Optional.of(
-                                    new RoleMapping(Map.of("guests", Set.of(GUESTS)), null));
+                            return Optional.of(new RoleMapping(Map.of("guests", GUESTS), null));
                         }
 
                         @Override

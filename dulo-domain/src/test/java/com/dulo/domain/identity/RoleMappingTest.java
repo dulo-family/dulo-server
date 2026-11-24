@@ -16,14 +16,13 @@ class RoleMappingTest {
     private static final RoleKey VIEWER = new RoleKey("viewer");
 
     private static final RoleMapping MAPPING =
-            new RoleMapping(
-                    Map.of("family-admins", Set.of(ADMIN, EDITOR), "family", Set.of(EDITOR)),
-                    VIEWER);
+            new RoleMapping(Map.of("family-admins", ADMIN, "family", EDITOR), VIEWER);
 
     @Test
     void mapsEveryMatchingClaimValue() {
         assertThat(MAPPING.mappedRoles(Set.of("family-admins", "family", "other")))
                 .containsExactlyInAnyOrder(ADMIN, EDITOR);
+        assertThat(MAPPING.mappedRoles(Set.of("family"))).containsExactly(EDITOR);
     }
 
     @Test

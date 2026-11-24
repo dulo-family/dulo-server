@@ -10,7 +10,6 @@ import org.springframework.boot.context.properties.bind.BindException;
 import org.springframework.boot.context.properties.bind.Binder;
 import org.springframework.boot.context.properties.source.MapConfigurationPropertySource;
 
-import java.util.List;
 import java.util.Map;
 
 class DuloPropertiesTest {
@@ -87,13 +86,32 @@ class DuloPropertiesTest {
                                 "https://id.example.com",
                                 "dulo.identity.providers.pocketid.client-id",
                                 "dulo",
-                                "dulo.identity.providers.pocketid.role-mappings.admins[0]",
+                                "dulo.identity.providers.pocketid.role-mappings.admins",
                                 "admin"));
 
         final var provider = properties.identity().providers().get("pocketid");
         assertThat(provider.type()).isEqualTo(DuloProperties.ProviderType.OIDC);
         assertThat(provider.scopes()).containsExactly("openid", "profile", "email");
         assertThat(provider.claims().roles()).isEqualTo("groups");
-        assertThat(provider.roleMappings()).containsEntry("admins", List.of("admin"));
+        assertThat(provider.roleMappings()).containsEntry("admins", "admin");
+    }
+
+    @Test
+    void rejectsListOfRolesInRoleMappings() {
+        assertThatThrownBy(() ->
+                        bind(
+                                Map.of(
+                                        "dulo.identity.providers.pocketid.type",
+                                        "oidc",
+                                        "dulo.identity.providers.pocketid.issuer-uri",
+                                        "https://id.example.com",
+                                        "dulo.identity.providers.pocketid.client-id",
+                                        "dulo",
+                                        "dulo.identity.providers.pocketid.role-mappings.admins[0]",
+                                        "admin")))
+                .isInstanceOf(BindException.class)
+                .rootCause()
+                .hasMessageContaining("one role")
+                .hasMessageContaining("admins.0");
     }
 }

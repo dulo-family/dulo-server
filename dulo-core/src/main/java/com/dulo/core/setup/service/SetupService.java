@@ -119,22 +119,15 @@ public class SetupService
         return List.copyOf(roles.values());
     }
 
-    /** A new tree, or the existing one if a tree was stored without a setup. */
-    private static TreeSettings tree(
-            final Optional<TreeSettings> existingTree, final SetupCommand command) {
-        return existingTree
-                .map(existing ->
-                        new TreeSettings(
-                                existing.id(),
-                                command.treeName(),
-                                command.treeDescription(),
-                                command.enabledFeatures(),
-                                existing.version()))
-                .orElseGet(() ->
-                        TreeSettings.create(
-                                command.treeName(),
-                                command.treeDescription(),
-                                command.enabledFeatures()));
+    /** A tree that was stored without a setup, with the setup's name, description and features. */
+    private static TreeSettings configured(
+            final TreeSettings existing, final SetupCommand command) {
+        return new TreeSettings(
+                existing.id(),
+                command.treeName(),
+                command.treeDescription(),
+                command.enabledFeatures(),
+                existing.version());
     }
 
     @Override
@@ -203,7 +196,15 @@ public class SetupService
                                                     "The user does not exist"));
                     final ChangeSet changes = this.recorder.changeSet(caller);
                     final Optional<TreeSettings> existingTree = this.trees.find();
-                    final TreeSettings stored = this.trees.save(tree(existingTree, command));
+                    final TreeSettings stored =
+                            this.trees.save(
+                                    existingTree
+                                            .map(existing -> configured(existing, command))
+                                            .orElseGet(() ->
+                                                    TreeSettings.create(
+                                                            command.treeName(),
+                                                            command.treeDescription(),
+                                                            command.enabledFeatures())));
                     existingTree.ifPresentOrElse(
                             before -> changes.changed(TreeFields.INSTANCE, before, stored),
                             () -> changes.created(TreeFields.INSTANCE, stored));
@@ -255,13 +256,11 @@ public class SetupService
         final Set<RoleKey> defined = roles.stream().map(Role::key).collect(Collectors.toSet());
         for (final IdentityProvider provider : this.providers.providers()) {
             final RoleMapping mapping = this.roleMapping(provider);
-            final Set<RoleKey> used = new HashSet<>();
-            mapping.byClaimValue().values().forEach(used::addAll);
+            final Set<RoleKey> used = new HashSet<>(mapping.byClaimValue().values());
             mapping.defaultRoleIfAny().ifPresent(used::add);
             used.stream()
                     .filter(key -> !defined.contains(key))
-                    .sorted(Comparator.comparing(RoleKey::value))
-                    .findFirst()
+                    .min(Comparator.comparing(RoleKey::value))
                     .ifPresent(key -> {
                         throw new IllegalArgumentException(
                                 ("The identity provider '%s' maps users to the role '%s', which"

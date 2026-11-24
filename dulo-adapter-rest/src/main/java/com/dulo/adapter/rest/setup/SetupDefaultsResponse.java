@@ -48,18 +48,16 @@ record SetupDefaultsResponse(
             String id,
             String displayName,
             @Schema(allowableValues = {"oidc", "google", "microsoft"}) String type,
-            @Schema(description = "Claim value to the role keys it grants.")
-                    Map<String, List<String>> roleMappings,
+            @Schema(description = "Claim value to the role key it grants.")
+                    Map<String, String> roleMappings,
             @Schema(description = "The role of users whose claims match no mapping.")
                     @Nullable String defaultRole) {
 
         static SetupIdentityProviderResponse from(final SetupDefaults.ProviderRoles provider) {
-            final Map<String, List<String>> mappings = new TreeMap<>();
+            final Map<String, String> mappings = new TreeMap<>();
             provider.roleMapping()
                     .byClaimValue()
-                    .forEach((value, roles) ->
-                            mappings.put(
-                                    value, roles.stream().map(RoleKey::value).sorted().toList()));
+                    .forEach((value, role) -> mappings.put(value, role.value()));
             return new SetupIdentityProviderResponse(
                     provider.provider().id(),
                     provider.provider().displayName(),

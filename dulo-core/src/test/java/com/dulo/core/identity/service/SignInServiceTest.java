@@ -39,7 +39,7 @@ class SignInServiceTest {
 
     private final InMemoryUsers users = new InMemoryUsers();
     private RegistrationMode mode = RegistrationMode.APPROVAL;
-    private RoleMapping mapping = new RoleMapping(Map.of("family-admins", Set.of(ADMIN)), VIEWER);
+    private RoleMapping mapping = new RoleMapping(Map.of("family-admins", ADMIN), VIEWER);
     private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final SignInService service =
             new SignInService(

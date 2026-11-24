@@ -21,6 +21,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 /**
  * All Dulo settings. Values come from {@code application.yaml} defaults, an optional YAML file
@@ -202,15 +203,31 @@ public record DuloProperties(
                     @DefaultValue
                     Claims claims,
             @ConfigDoc(
-                            "Maps values of the roles claim to Dulo roles, e.g. {dulo-admins:"
-                                    + " [admin]}.")
+                            "Maps each value of the roles claim to one Dulo role, e.g."
+                                    + " {dulo-admins: admin}.")
                     @DefaultValue
-                    Map<String, List<String>> roleMappings,
+                    Map<String, String> roleMappings,
             @ConfigDoc("Dulo role for users whose claims match no role mapping.")
                     @Nullable String defaultRole) {
 
+        /**
+         * How a YAML list binds into the map: {@code dulo-admins: [admin]} becomes the key {@code
+         * dulo-admins.0}, which would never match a claim value.
+         */
+        private static final Pattern LIST_ENTRY = Pattern.compile(".+\\.\\d+");
+
         public Provider {
             roleMappings = Map.copyOf(roleMappings);
+            roleMappings
+                    .keySet()
+                    .forEach(claimValue -> {
+                        if (LIST_ENTRY.matcher(claimValue).matches()) {
+                            throw new IllegalArgumentException(
+                                    "role-mappings maps each claim value to one role, e.g."
+                                            + " dulo-admins: admin, not to a list (found '%s')"
+                                                    .formatted(claimValue));
+                        }
+                    });
         }
 
         /** The configured display name, or a name derived from the type and id. */

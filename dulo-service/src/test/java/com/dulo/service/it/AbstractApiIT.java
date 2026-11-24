@@ -357,8 +357,7 @@ abstract class AbstractApiIT {
         assertThat(defaults.path("registrationMode").asString()).isEqualTo("approval");
         final JsonNode mock = defaults.path("identityProviders").get(0);
         assertThat(mock.path("id").asString()).isEqualTo("mock");
-        assertThat(mock.path("roleMappings").path("family-admins").get(0).asString())
-                .isEqualTo("admin");
+        assertThat(mock.path("roleMappings").path("family-admins").asString()).isEqualTo("admin");
         assertThat(feature(defaults, "map-view").path("locked").asBoolean()).isTrue();
         final String configuration =
                 JSON.readTree(
