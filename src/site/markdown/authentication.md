@@ -16,9 +16,8 @@ clients.
      [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068) defines them: type `at+jwt`, a
      `client_id` claim, and Dulo's own URL as the audience (`aud`).
    - Refresh tokens last 30 days and are replaced on every use.
-   - Signing out at the end-session endpoint (`/connect/logout` with `id_token_hint`, as the web
-     client does) removes that sign-in's authorization, so its refresh token stops working. The
-     user's other sign-ins stay, and access tokens already issued stay valid until they expire.
+   - Signing out, in Dulo or at the identity provider, makes the refresh token stop working
+     (see [Signing out](#signing-out)).
    - Authorizations and refresh tokens are kept in memory, so after a restart users sign in again.
      If the provider's session is still alive, that needs no password.
 3. **A resource server.** Every API call needs one of Dulo's access tokens. Dulo checks the token
@@ -65,6 +64,21 @@ The web client is the public client `dulo-web`. By default it runs under the pub
 Docker image: its sign-in page is `<public-url>/sign-in` and its redirect URI
 `<public-url>/auth/callback`. A web client served elsewhere needs `dulo.clients.web.redirect-uris`,
 `allowed-origins` and `sign-in-url`; `deploy/dev/dulo.dev.yaml` shows them for local development.
+
+## Signing out
+
+- **In Dulo:** the web client signs out at the end-session endpoint (`/connect/logout`). That
+  ends the browser's Dulo session and removes that sign-in's authorization, so its refresh token
+  stops working. The user stays signed in at the identity provider.
+- **At the identity provider:** providers that support
+  [OpenID Connect Back-Channel Logout](https://openid.net/specs/openid-connect-backchannel-1_0.html)
+  tell Dulo when a user signs out there, or when an administrator ends their sessions. Register
+  `<public-url>/logout/connect/back-channel/<providerId>` as the provider's back-channel logout
+  URL, e.g. `https://dulo.example.com/logout/connect/back-channel/pocketid`. Dulo checks the
+  logout token with the provider's keys, then ends the browser sessions of that sign-in and
+  removes the authorizations that came from it. A logout token with `sid` ends that provider
+  session only; one with just `sub` ends all of the user's sign-ins with that provider.
+- Either way, access tokens already issued stay valid until they expire (at most 15 minutes).
 
 ## Users and roles
 
