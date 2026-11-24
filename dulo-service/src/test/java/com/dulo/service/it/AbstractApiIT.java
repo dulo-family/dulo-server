@@ -277,6 +277,34 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void signingOutEndsThatSignInOnly() throws Exception {
+        final OAuthTestClient browser = this.client();
+        final OAuthTestClient.Tokens signedIn = browser.signIn("it-sign-out", "{}");
+        final OAuthTestClient.Tokens refreshed = browser.refresh(signedIn.refreshToken());
+        final OAuthTestClient otherDevice = this.client();
+        final OAuthTestClient.Tokens other = otherDevice.signIn("it-sign-out", "{}");
+
+        // The web client signs out with the ID token it got last.
+        final HttpResponse<String> signOut = browser.signOut(refreshed.idToken());
+
+        assertThat(signOut.statusCode()).isEqualTo(302);
+        assertThat(signOut.headers().firstValue("Location")).hasValue(OAuthTestClient.SIGN_IN_URL);
+        final HttpResponse<String> afterSignOut =
+                browser.tokenRequest(
+                        Map.of(
+                                "grant_type",
+                                "refresh_token",
+                                "refresh_token",
+                                refreshed.refreshToken(),
+                                "client_id",
+                                OAuthTestClient.CLIENT_ID));
+        assertThat(afterSignOut.statusCode()).isEqualTo(400);
+        assertThat(afterSignOut.body()).contains("invalid_grant");
+        // The other device's sign-in goes on.
+        assertThat(otherDevice.refresh(other.refreshToken()).accessToken()).isNotBlank();
+    }
+
+    @Test
     void unknownProviderHintsGoToTheSignInPage() throws Exception {
         final OAuthTestClient client = this.client();
 
@@ -284,7 +312,7 @@ abstract class AbstractApiIT {
                 client.get(client.authorizationUrl("x".repeat(43), "ghost"));
 
         assertThat(hinted.statusCode()).isEqualTo(302);
-        assertThat(hinted.headers().firstValue("Location")).hasValue("http://127.0.0.1/sign-in");
+        assertThat(hinted.headers().firstValue("Location")).hasValue(OAuthTestClient.SIGN_IN_URL);
     }
 
     @Test

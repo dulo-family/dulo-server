@@ -16,6 +16,9 @@ clients.
      [RFC 9068](https://www.rfc-editor.org/rfc/rfc9068) defines them: type `at+jwt`, a
      `client_id` claim, and Dulo's own URL as the audience (`aud`).
    - Refresh tokens last 30 days and are replaced on every use.
+   - Signing out at the end-session endpoint (`/connect/logout` with `id_token_hint`, as the web
+     client does) removes that sign-in's authorization, so its refresh token stops working. The
+     user's other sign-ins stay, and access tokens already issued stay valid until they expire.
    - Authorizations and refresh tokens are kept in memory, so after a restart users sign in again.
      If the provider's session is still alive, that needs no password.
 3. **A resource server.** Every API call needs one of Dulo's access tokens. Dulo checks the token
