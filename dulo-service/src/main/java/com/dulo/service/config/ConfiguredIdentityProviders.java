@@ -12,8 +12,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 /**
  * The identity providers of {@code dulo.identity.providers}, as the core sees them. Role keys are
@@ -59,12 +57,9 @@ class ConfiguredIdentityProviders implements IdentityProvidersPort {
     private static RoleMapping roleMapping(
             final String providerId, final DuloProperties.Provider provider) {
         try {
-            final Map<String, Set<RoleKey>> byClaimValue = new HashMap<>();
+            final Map<String, RoleKey> byClaimValue = new HashMap<>();
             provider.roleMappings()
-                    .forEach((claimValue, roles) ->
-                            byClaimValue.put(
-                                    claimValue,
-                                    roles.stream().map(RoleKey::new).collect(Collectors.toSet())));
+                    .forEach((claimValue, role) -> byClaimValue.put(claimValue, new RoleKey(role)));
             final String defaultRole = provider.defaultRole();
             return new RoleMapping(
                     byClaimValue, defaultRole == null ? null : new RoleKey(defaultRole));

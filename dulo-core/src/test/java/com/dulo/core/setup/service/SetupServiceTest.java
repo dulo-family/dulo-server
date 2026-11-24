@@ -54,8 +54,7 @@ class SetupServiceTest {
     private final InMemoryUsers users = new InMemoryUsers();
     private final InMemoryRoles roles = new InMemoryRoles(List.of());
     private final InMemoryTrees trees = new InMemoryTrees(null);
-    private RoleMapping mapping =
-            new RoleMapping(Map.of("admins", Set.of(DefaultRoles.ADMIN)), null);
+    private RoleMapping mapping = new RoleMapping(Map.of("admins", DefaultRoles.ADMIN), null);
     private final InMemoryChangeEvents events = new InMemoryChangeEvents();
     private final SetupService service =
             new SetupService(
@@ -210,7 +209,7 @@ class SetupServiceTest {
         assertThatThrownBy(() -> this.service.complete(caller, TOKEN, command(readers, readers)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("defined twice");
-        this.mapping = new RoleMapping(Map.of("readers", Set.of(READERS)), null);
+        this.mapping = new RoleMapping(Map.of("readers", READERS), null);
         assertThatThrownBy(() -> this.service.complete(caller, TOKEN, command()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("'pocketid'")

@@ -4479,12 +4479,9 @@
           "roleMappings" : {
             "type" : "object",
             "additionalProperties" : {
-              "type" : "array",
-              "items" : {
-                "type" : "string"
-              }
+              "type" : "string"
             },
-            "description" : "Claim value to the role keys it grants."
+            "description" : "Claim value to the role key it grants."
           },
           "type" : {
             "type" : "string",

@@ -168,7 +168,7 @@ public class RoleAdministrationService implements ManageRolesUseCase {
         final RoleMapping mapping =
                 this.providers.roleMapping(providerId).orElse(RoleMapping.none());
         return mapping.defaultRoleIfAny().filter(key::equals).isPresent()
-                || mapping.byClaimValue().values().stream().anyMatch(roles -> roles.contains(key));
+                || mapping.byClaimValue().containsValue(key);
     }
 
     private Role find(final RoleKey key) {

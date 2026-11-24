@@ -4,25 +4,24 @@ import com.dulo.domain.access.RoleKey;
 
 import org.jspecify.annotations.Nullable;
 
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
- * How an identity provider's role claim translates to Dulo roles.
+ * How an identity provider's role claim translates to Dulo roles. Each claim value maps to one
+ * role; a user with several matching values gets each of their roles.
  *
- * @param byClaimValue Dulo roles per value of the provider's roles claim, e.g. {@code family-admins
- *     -> [admin]}
+ * @param byClaimValue the Dulo role per value of the provider's roles claim, e.g. {@code
+ *     family-admins -> admin}
  * @param defaultRole the role of users whose claims match no mapping
  */
-public record RoleMapping(Map<String, Set<RoleKey>> byClaimValue, @Nullable RoleKey defaultRole) {
+public record RoleMapping(Map<String, RoleKey> byClaimValue, @Nullable RoleKey defaultRole) {
 
     public RoleMapping {
-        final Map<String, Set<RoleKey>> copy = new HashMap<>();
-        byClaimValue.forEach((value, roles) -> copy.put(value, Set.copyOf(roles)));
-        byClaimValue = Map.copyOf(copy);
+        byClaimValue = Map.copyOf(byClaimValue);
     }
 
     public static RoleMapping none() {
@@ -31,9 +30,10 @@ public record RoleMapping(Map<String, Set<RoleKey>> byClaimValue, @Nullable Role
 
     /** The roles the given claim values map to, empty when no mapping matches. */
     public Set<RoleKey> mappedRoles(final Set<String> claimValues) {
-        final Set<RoleKey> roles = new HashSet<>();
-        claimValues.forEach(value -> roles.addAll(byClaimValue.getOrDefault(value, Set.of())));
-        return Set.copyOf(roles);
+        return claimValues.stream()
+                .map(this.byClaimValue::get)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toUnmodifiableSet());
     }
 
     public Optional<RoleKey> defaultRoleIfAny() {

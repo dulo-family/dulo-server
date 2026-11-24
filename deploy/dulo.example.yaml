@@ -25,8 +25,8 @@ dulo:
         claims:
           roles: groups
         role-mappings:
-          family-admins: [admin]
-          family: [editor]
+          family-admins: admin
+          family: editor
         default-role: viewer
       google:
         type: google

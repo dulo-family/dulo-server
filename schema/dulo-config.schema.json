@@ -46,13 +46,10 @@
         "role-mappings" : {
           "type" : "object",
           "additionalProperties" : {
-            "type" : "array",
-            "items" : {
-              "type" : "string"
-            },
-            "description" : "Maps values of the roles claim to Dulo roles, e.g. {dulo-admins: [admin]}."
+            "type" : "string",
+            "description" : "Maps each value of the roles claim to one Dulo role, e.g. {dulo-admins: admin}."
           },
-          "description" : "Maps values of the roles claim to Dulo roles, e.g. {dulo-admins: [admin]}."
+          "description" : "Maps each value of the roles claim to one Dulo role, e.g. {dulo-admins: admin}."
         },
         "scopes" : {
           "description" : "Requested scopes.",

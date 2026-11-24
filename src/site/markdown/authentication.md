@@ -68,6 +68,10 @@ Docker image: its sign-in page is `<public-url>/sign-in` and its redirect URI
 - New users are **active** when `dulo.registration.mode` is `auto`, or when a role mapping matches
   their claims. Otherwise they are **pending** until an administrator approves them.
 - A pending user becomes active as soon as a later sign-in matches a role mapping.
+- `role-mappings` maps each value of the provider's roles claim to one Dulo role, e.g.
+  `dulo-admins: admin`. A user with several matching values gets each of their roles. A group
+  that needs more permissions maps to a role that has them. A list of roles per value is
+  rejected at startup.
 - A user's roles are the roles mapped from the provider's claims, which are recomputed at every
   sign-in, plus the roles an administrator assigns. Users whose claims match no mapping get the
   provider's `default-role`.

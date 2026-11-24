@@ -36,13 +36,15 @@ class ConfiguredIdentityProvidersTest {
         final ConfiguredIdentityProviders providers =
                 providers(
                         Map.of(
-                                POCKETID + "role-mappings[family-admins][0]", "admin",
-                                POCKETID + "role-mappings[family-admins][1]", "editor",
+                                POCKETID + "role-mappings[family-admins]", "admin",
+                                POCKETID + "role-mappings[family]", "editor",
                                 POCKETID + "default-role", "viewer"));
 
         final RoleMapping mapping = providers.roleMapping("pocketid").orElseThrow();
 
         assertThat(mapping.mappedRoles(Set.of("family-admins")))
+                .containsExactly(new RoleKey("admin"));
+        assertThat(mapping.mappedRoles(Set.of("family-admins", "family")))
                 .containsExactlyInAnyOrder(new RoleKey("admin"), new RoleKey("editor"));
         assertThat(mapping.defaultRoleIfAny()).contains(new RoleKey("viewer"));
         assertThat(providers.roleMapping("google")).isEmpty();

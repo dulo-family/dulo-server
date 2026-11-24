@@ -30,7 +30,7 @@ dulo:
         client-secret: dev-secret
         # Sign in with the claims {"groups": ["dulo-admins"]} to become an administrator.
         role-mappings:
-          dulo-admins: [admin]
+          dulo-admins: admin
         default-role: viewer
 
   clients:
