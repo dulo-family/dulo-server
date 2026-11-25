@@ -85,6 +85,10 @@
       <groupId>tools.jackson.core</groupId>
       <artifactId>jackson-databind</artifactId>
     </dependency>
+    <dependency>
+      <groupId>tools.jackson.dataformat</groupId>
+      <artifactId>jackson-dataformat-yaml</artifactId>
+    </dependency>
 
     <!-- Test dependencies -->
     <dependency>
@@ -152,11 +156,6 @@
       <artifactId>testcontainers-postgresql</artifactId>
       <scope>test</scope>
     </dependency>
-    <dependency>
-      <groupId>tools.jackson.dataformat</groupId>
-      <artifactId>jackson-dataformat-yaml</artifactId>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
@@ -172,9 +171,10 @@
               with test scope would drop them from the server JAR.
             -->
             <ignoredNonTestScopedDependencies>
-              <ignoredNonTestScopedDependency>com.fasterxml:classmate</ignoredNonTestScopedDependency>
-              <ignoredNonTestScopedDependency>org.springframework:spring-beans</ignoredNonTestScopedDependency>
-              <ignoredNonTestScopedDependency>tools.jackson.core:jackson-databind</ignoredNonTestScopedDependency>
+              <dep>com.fasterxml:classmate</dep>
+              <dep>org.springframework:spring-beans</dep>
+              <dep>tools.jackson.core:jackson-databind</dep>
+              <dep>tools.jackson.dataformat:jackson-dataformat-yaml</dep>
             </ignoredNonTestScopedDependencies>
           </configuration>
         </plugin>
