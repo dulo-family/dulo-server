@@ -115,7 +115,7 @@
               version that can drift from Spring Security's.
             -->
             <ignoredUsedUndeclaredDependencies>
-              <ignoredUsedUndeclaredDependency>com.nimbusds:nimbus-jose-jwt</ignoredUsedUndeclaredDependency>
+              <dep>com.nimbusds:nimbus-jose-jwt</dep>
             </ignoredUsedUndeclaredDependencies>
           </configuration>
         </plugin>
