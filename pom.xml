@@ -193,28 +193,6 @@
       <groupId>org.jspecify</groupId>
       <artifactId>jspecify</artifactId>
     </dependency>
-
-    <!-- Test dependencies every module uses -->
-    <dependency>
-      <groupId>org.assertj</groupId>
-      <artifactId>assertj-core</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-api</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.jupiter</groupId>
-      <artifactId>junit-jupiter-engine</artifactId>
-      <scope>test</scope>
-    </dependency>
-    <dependency>
-      <groupId>org.junit.platform</groupId>
-      <artifactId>junit-platform-launcher</artifactId>
-      <scope>test</scope>
-    </dependency>
   </dependencies>
 
   <build>
@@ -251,21 +229,6 @@
           <configuration>
             <failOnWarning>true</failOnWarning>
             <ignoreUnusedRuntime>true</ignoreUnusedRuntime>
-            <!--
-              Used without a compile-time reference, so the bytecode analysis cannot see them:
-              starters (auto-configuration), annotation processors, test engines and the test
-              libraries every module inherits, including modules without tests yet.
-            -->
-            <ignoredUnusedDeclaredDependencies>
-              <dep>com.tngtech.archunit:archunit-junit5-engine</dep>
-              <dep>org.assertj:assertj-core</dep>
-              <dep>org.junit.jupiter:junit-jupiter-api</dep>
-              <dep>org.junit.jupiter:junit-jupiter-engine</dep>
-              <dep>org.junit.platform:junit-platform-launcher</dep>
-              <dep>org.springdoc:springdoc-openapi-starter-*</dep>
-              <dep>org.springframework.boot:spring-boot-configuration-processor</dep>
-              <dep>org.springframework.boot:spring-boot-starter-*</dep>
-            </ignoredUnusedDeclaredDependencies>
           </configuration>
           <executions>
             <execution>

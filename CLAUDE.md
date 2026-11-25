@@ -28,7 +28,9 @@ fails a build with `-pl` alone:
 ```
 
 The build also runs `maven-dependency-plugin:analyze-only` with `failOnWarning`, so every directly
-used dependency must be declared, and unused ones fail the build.
+used dependency must be declared, and unused ones fail the build. Dependencies used without a
+compile-time reference (starters, annotation processors, test engines) go in the module's own
+`ignoredUnusedDeclaredDependencies`.
 
 ### Checked-in generated files
 
@@ -144,7 +146,12 @@ rest. The rules that are easy to get wrong:
     `<!-- Test dependencies -->` sections, sorted by groupId, then artifactId;
   - versions, configuration and executions live only in `dependencyManagement` and
     `pluginManagement`;
-  - keep a blank line between version properties, so a Dependabot bump changes one line.
+  - keep a blank line between version properties, so a Dependabot bump changes one line;
+  - the root POM gives every module only JSpecify. A module's first test needs `assertj-core`,
+    `junit-jupiter-api`, `junit-jupiter-engine` and `junit-platform-launcher` in its own POM, with
+    the engine and the launcher in its `ignoredUnusedDeclaredDependencies`. Once every module has
+    the same test dependencies, move them and those ignore entries back to the root POM, and mark
+    the modules' own lists `combine.children="append"` so they don't replace the root's.
 - **Plugin versions:** don't set a version for plugins the Spring Boot parent manages. Pin the
   others as properties.
 - **Runtime dependencies used in tests:** never make them test-scoped, because that drops them from

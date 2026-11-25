@@ -94,4 +94,24 @@
       <artifactId>jackson-databind</artifactId>
     </dependency>
   </dependencies>
+
+  <build>
+    <pluginManagement>
+      <plugins>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <configuration>
+            <!--
+              Used without a compile-time reference, so the bytecode analysis cannot see them:
+              starters (auto-configuration).
+            -->
+            <ignoredUnusedDeclaredDependencies>
+              <dep>org.springframework.boot:spring-boot-starter-*</dep>
+            </ignoredUnusedDeclaredDependencies>
+          </configuration>
+        </plugin>
+      </plugins>
+    </pluginManagement>
+  </build>
 </project>

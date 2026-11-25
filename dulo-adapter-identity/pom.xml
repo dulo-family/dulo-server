@@ -91,8 +91,28 @@
 
     <!-- Test dependencies -->
     <dependency>
+      <groupId>org.assertj</groupId>
+      <artifactId>assertj-core</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-api</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.jupiter</groupId>
+      <artifactId>junit-jupiter-engine</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
       <groupId>org.junit.jupiter</groupId>
       <artifactId>junit-jupiter-params</artifactId>
+      <scope>test</scope>
+    </dependency>
+    <dependency>
+      <groupId>org.junit.platform</groupId>
+      <artifactId>junit-platform-launcher</artifactId>
       <scope>test</scope>
     </dependency>
     <dependency>
@@ -109,6 +129,15 @@
           <groupId>org.apache.maven.plugins</groupId>
           <artifactId>maven-dependency-plugin</artifactId>
           <configuration>
+            <!--
+              Used without a compile-time reference, so the bytecode analysis cannot see them:
+              starters (auto-configuration) and test engines.
+            -->
+            <ignoredUnusedDeclaredDependencies>
+              <dep>org.junit.jupiter:junit-jupiter-engine</dep>
+              <dep>org.junit.platform:junit-platform-launcher</dep>
+              <dep>org.springframework.boot:spring-boot-starter-*</dep>
+            </ignoredUnusedDeclaredDependencies>
             <!--
               Nimbus JOSE + JWT comes with Spring Security, which picks the version it is tested
               with. Spring Boot does not manage it, and declaring it would mean pinning a second
