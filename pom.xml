@@ -12,7 +12,7 @@
 
   <groupId>com.dulo</groupId>
   <artifactId>dulo-server</artifactId>
-  <version>0.5.1-SNAPSHOT</version>
+  <version>0.5.1</version>
   <packaging>pom</packaging>
 
   <name>Dulo Server</name>
@@ -40,7 +40,7 @@
   <scm child.scm.connection.inherit.append.path="false" child.scm.developerConnection.inherit.append.path="false" child.scm.url.inherit.append.path="false">
     <connection>scm:git:https://github.com/dulo-family/dulo-server.git</connection>
     <developerConnection>scm:git:https://github.com/dulo-family/dulo-server.git</developerConnection>
-    <tag>HEAD</tag>
+    <tag>v0.5.1</tag>
     <url>https://github.com/dulo-family/dulo-server</url>
   </scm>
 
@@ -67,7 +67,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <!-- Timestamp of reproducible builds and the site's "Last Published" date. release:prepare
      sets it on every release; without it, the super POM's 1980-02-01 applies. -->
-    <project.build.outputTimestamp>2026-11-24T17:13:21Z</project.build.outputTimestamp>
+    <project.build.outputTimestamp>2026-11-25T10:40:07Z</project.build.outputTimestamp>
     <!-- Version policy for maven-release-plugin. Can be changed by passing -DreleaseType -->
     <releaseType>SemVerMinorRelease</releaseType>
 
