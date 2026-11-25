@@ -175,6 +175,16 @@ final class OAuthTestClient {
                         HttpResponse.BodyHandlers.ofString()));
     }
 
+    /** An API call from the web client: a bearer token, plus the browser's cookies. */
+    HttpResponse<String> api(final String path, final String accessToken)
+            throws IOException, InterruptedException {
+        return this.http.send(
+                HttpRequest.newBuilder(URI.create(this.baseUrl + path))
+                        .header("Authorization", "Bearer " + accessToken)
+                        .build(),
+                HttpResponse.BodyHandlers.ofString());
+    }
+
     /** Signs out the way the web client does: the browser goes to the end-session endpoint. */
     HttpResponse<String> signOut(final String idToken) throws IOException, InterruptedException {
         return this.get(

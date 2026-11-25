@@ -12,6 +12,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.session.NullAuthenticatedSessionStrategy;
 import org.springframework.security.web.servlet.util.matcher.PathPatternRequestMatcher;
 import org.springframework.security.web.util.matcher.OrRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -94,8 +95,14 @@ public class ApiSecurityConfiguration {
                                         new PublicEndpointsBearerTokenResolver(PUBLIC_ENDPOINTS))
                                 .authenticationEntryPoint(entryPoint))
                 .exceptionHandling(exceptions -> exceptions.authenticationEntryPoint(entryPoint))
-                .sessionManagement(
-                        sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                // The browser's session (the sign-in at the authorization server) comes along with
+                // the web client's calls, as a cookie. A bearer request must leave it alone: by
+                // default each one would change its id, and sign-out would then reject the ID
+                // token's sid.
+                .sessionManagement(sessions ->
+                        sessions.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
+                                .sessionAuthenticationStrategy(
+                                        new NullAuthenticatedSessionStrategy()))
                 // Bearer tokens are not sent automatically by browsers, so CSRF cannot happen.
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults());

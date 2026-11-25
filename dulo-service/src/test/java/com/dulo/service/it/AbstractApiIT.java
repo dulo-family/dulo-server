@@ -304,6 +304,24 @@ abstract class AbstractApiIT {
     }
 
     @Test
+    void apiCallsLeaveTheBrowserSessionAlone() throws Exception {
+        final OAuthTestClient browser = this.client();
+        final OAuthTestClient.Tokens signedIn = browser.signIn("it-api-session", "{}");
+
+        // The web client's API calls carry the browser's session cookie.
+        final HttpResponse<String> me = browser.api("/api/v1/me", signedIn.accessToken());
+
+        assertThat(me.statusCode()).isEqualTo(200);
+        assertThat(me.headers().allValues("Set-Cookie")).isEmpty();
+        final HttpResponse<String> userInfo = browser.api("/userinfo", signedIn.accessToken());
+        assertThat(userInfo.statusCode()).isEqualTo(200);
+        assertThat(userInfo.headers().allValues("Set-Cookie")).isEmpty();
+        // So the session still matches the ID token's sid, and signing out works.
+        final HttpResponse<String> signOut = browser.signOut(signedIn.idToken());
+        assertThat(signOut.statusCode()).as(signOut.body()).isEqualTo(302);
+    }
+
+    @Test
     void signingOutEndsThatSignInOnly() throws Exception {
         final OAuthTestClient browser = this.client();
         final OAuthTestClient.Tokens signedIn = browser.signIn("it-sign-out", "{}");
