@@ -8,8 +8,9 @@ clients.
 
 1. **A client of the identity providers.** Dulo has its own client ID, and usually a secret, at
    each provider in `dulo.identity.providers`. It signs users in with the OpenID Connect
-   authorization code flow. On the first sign-in it creates a Dulo user, and on every sign-in it
-   maps the provider's roles claim to Dulo roles.
+   authorization code flow, always with PKCE (`S256`), so a provider may require PKCE for Dulo's
+   client (in Pocket ID, the client's **PKCE** option). On the first sign-in it creates a Dulo
+   user, and on every sign-in it maps the provider's roles claim to Dulo roles.
 2. **An authorization server** for Dulo's clients: the web client, tools like Postman, and later
    MCP clients. It issues JWT access tokens whose subject (`sub`) is the Dulo user id.
    - Access tokens last 15 minutes. They are JWT access tokens as
