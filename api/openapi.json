@@ -6,12 +6,12 @@
     "version" : "1"
   },
   "servers" : [ {
-    "url" : "{baseUrl}",
     "description" : "Dulo server",
+    "url" : "{baseUrl}",
     "variables" : {
       "baseUrl" : {
-        "description" : "Address of your Dulo server",
-        "default" : "http://localhost:8080"
+        "default" : "http://localhost:8080",
+        "description" : "Address of your Dulo server"
       }
     }
   } ],
