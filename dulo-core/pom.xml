@@ -50,10 +50,10 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <configuration>
             <!--
-              Test engines, which Surefire runs without a compile-time reference.
-              Appended to the root POM's list.
+              Used without a compile-time reference, so the bytecode analysis cannot see them:
+              test engines.
             -->
-            <ignoredUnusedDeclaredDependencies combine.children="append">
+            <ignoredUnusedDeclaredDependencies>
               <dep>org.junit.jupiter:junit-jupiter-engine</dep>
               <dep>org.junit.platform:junit-platform-launcher</dep>
             </ignoredUnusedDeclaredDependencies>

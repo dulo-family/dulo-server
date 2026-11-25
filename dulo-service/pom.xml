@@ -197,13 +197,15 @@
               <dep>tools.jackson.dataformat:jackson-dataformat-yaml</dep>
             </ignoredNonTestScopedDependencies>
             <!--
-              Test engines, which Surefire runs without a compile-time reference.
-              Appended to the root POM's list.
+              Used without a compile-time reference, so the bytecode analysis cannot see them:
+              starters (auto-configuration), annotation processors and test engines.
             -->
-            <ignoredUnusedDeclaredDependencies combine.children="append">
+            <ignoredUnusedDeclaredDependencies>
               <dep>com.tngtech.archunit:archunit-junit5-engine</dep>
               <dep>org.junit.jupiter:junit-jupiter-engine</dep>
               <dep>org.junit.platform:junit-platform-launcher</dep>
+              <dep>org.springframework.boot:spring-boot-configuration-processor</dep>
+              <dep>org.springframework.boot:spring-boot-starter-*</dep>
             </ignoredUnusedDeclaredDependencies>
           </configuration>
         </plugin>

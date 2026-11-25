@@ -229,16 +229,6 @@
           <configuration>
             <failOnWarning>true</failOnWarning>
             <ignoreUnusedRuntime>true</ignoreUnusedRuntime>
-            <!--
-              Used without a compile-time reference, so the bytecode analysis cannot see them:
-              starters (auto-configuration) and annotation processors. Modules with tests add
-              their test engines to this list.
-            -->
-            <ignoredUnusedDeclaredDependencies>
-              <dep>org.springdoc:springdoc-openapi-starter-*</dep>
-              <dep>org.springframework.boot:spring-boot-configuration-processor</dep>
-              <dep>org.springframework.boot:spring-boot-starter-*</dep>
-            </ignoredUnusedDeclaredDependencies>
           </configuration>
           <executions>
             <execution>

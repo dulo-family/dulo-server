@@ -105,12 +105,14 @@
           <artifactId>maven-dependency-plugin</artifactId>
           <configuration>
             <!--
-              Test engines, which Surefire runs without a compile-time reference.
-              Appended to the root POM's list.
+              Used without a compile-time reference, so the bytecode analysis cannot see them:
+              starters (auto-configuration) and test engines.
             -->
-            <ignoredUnusedDeclaredDependencies combine.children="append">
+            <ignoredUnusedDeclaredDependencies>
               <dep>org.junit.jupiter:junit-jupiter-engine</dep>
               <dep>org.junit.platform:junit-platform-launcher</dep>
+              <dep>org.springdoc:springdoc-openapi-starter-*</dep>
+              <dep>org.springframework.boot:spring-boot-starter-*</dep>
             </ignoredUnusedDeclaredDependencies>
           </configuration>
         </plugin>
