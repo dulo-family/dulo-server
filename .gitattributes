@@ -1,3 +1,4 @@
 * text=auto eol=lf
-*.cmd text eol=crlf
+# Stored with CRLF, exactly as the Maven Wrapper ships it, so Dependabot's wrapper updates match.
+*.cmd -text
 *.jar binary
