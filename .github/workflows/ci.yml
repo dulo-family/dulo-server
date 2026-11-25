@@ -84,8 +84,12 @@ jobs:
           path: '**/target/*-reports/'
           retention-days: 14
 
+  # Runs after the build job, so it restores the Maven cache that job saved. When a pom.xml change
+  # misses the cache, two jobs downloading every dependency at once get rate limited by Maven
+  # Central (HTTP 429).
   docs:
     name: Docs
+    needs: build
     runs-on: ubuntu-26.04
 
     steps:
