@@ -144,7 +144,12 @@ rest. The rules that are easy to get wrong:
     `<!-- Test dependencies -->` sections, sorted by groupId, then artifactId;
   - versions, configuration and executions live only in `dependencyManagement` and
     `pluginManagement`;
-  - keep a blank line between version properties, so a Dependabot bump changes one line.
+  - keep a blank line between version properties, so a Dependabot bump changes one line;
+  - the root POM gives every module only JSpecify. A module's first test needs `assertj-core`,
+    `junit-jupiter-api`, `junit-jupiter-engine` and `junit-platform-launcher` in its own POM, with
+    the engine and the launcher in its `ignoredUnusedDeclaredDependencies`
+    (`combine.children="append"`). Once every module has the same test dependencies, move them
+    and those ignore entries back to the root POM.
 - **Plugin versions:** don't set a version for plugins the Spring Boot parent manages. Pin the
   others as properties.
 - **Runtime dependencies used in tests:** never make them test-scoped, because that drops them from
